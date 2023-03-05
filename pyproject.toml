@@ -1,0 +1,156 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# PROJECT
+[project]
+name = "cancelchain"
+dynamic = ["version"]
+description = "A Blockchain of Accountability, Support, and Forgiveness"
+readme = "README.rst"
+license = "MIT"
+requires-python = ">=3.9"
+authors = [
+  { name = "Thomas Bohmbach Jr", email = "tom@cancelchain.org" }
+]
+keywords = [
+  "blockchain",
+  "flask",
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Framework :: Flask",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Sociology",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+  "base58check>=1.0",
+  "blinker>=1.5",
+  "celery>=5.2",
+  "click>=8.1",
+  "Flask>=2.2",
+  "Flask-Caching>=2.0",
+  "Flask-SQLAlchemy>=3.0",
+  "gunicorn>=20.1",
+  "humanfriendly>=10.0",
+  "marshmallow>=3.19",
+  "millify>=0.1",
+  "passlib[argon2]>=1.7",
+  "pg8000>=1.29",
+  "progress>=1.6",
+  "pycryptodome>=3.16",
+  "pyjwt>=2.6",
+  "pymerkle>=3.0",
+  "python-dotenv>=0.21.1",
+  "requests>=2.28",
+  "sqlalchemy<2.0",
+]
+
+[project.scripts]
+cancelchain = "cancelchain:cli"
+
+[project.urls]
+Homepage = "https://cancelchain.org"
+Documentation = "https://docs.cancelchain.org"
+Source = "https://github.com/cancelchain/cancelchain"
+Tracker = "https://github.com/cancelchain/cancelchain/issues"
+
+# HATCH
+[tool.hatch.version]
+path = "src/cancelchain/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src",
+]
+exclude = [
+  "/.github",
+]
+
+[tool.hatch.envs.test]
+dependencies = [
+  "coverage[toml]>=7.2",
+  "pytest>=7.2",
+  "pytest-cov>=4.0",
+  "pytest-dotenv>=0.5",
+  "requests-mock>=1.10",
+  "time-machine>=2.9",
+  "ruff>=0.0.253",
+]
+
+[tool.hatch.envs.test.scripts]
+run-coverage = "pytest --cov-config=pyproject.toml --cov=cancelchain"
+run = "run-coverage --no-cov"
+ruffit = "hatch run test:ruff check src tests"
+
+# RUFF
+[tool.ruff]
+target-version = "py39"
+line-length = 80
+select = [
+  "A",
+  "B",
+  "C",
+  "DTZ",
+  "E",
+  "EM",
+  "F",
+  "FBT",
+  "I",
+  "ICN",
+  "ISC",
+  "N",
+  "PLC",
+  "PLE",
+  "PLR",
+  "PLW",
+  "Q",
+  "RUF",
+  "S",
+  "SIM",
+  "T",
+  "TID",
+  "UP",
+  "W",
+  "YTT",
+]
+ignore = [
+  "A002",
+  "A003",
+  "B904",
+  "DTZ007",
+  "FBT002",
+  "PLR0912",
+  "PLR0913",
+  "PLR0915",
+  "PLR2004",
+  "Q000",
+  "S101",
+  "S110",
+]
+
+# PYTEST
+[tool.pytest.ini_options]
+testpaths = [
+  "tests",
+]
+env_files = [
+  "tests/.test.env",
+]
+filterwarnings = [
+  "ignore:.*SelectableGroups dict interface is deprecated.*"
+]
+
+# COVERAGE
+[tool.coverage.html]
+directory = "coverage_html_report"
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+]

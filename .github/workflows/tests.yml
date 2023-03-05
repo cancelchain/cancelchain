@@ -1,0 +1,22 @@
+name: Tests
+on: [push]
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ['3.9', '3.10', '3.11']
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run:
+          pip install --upgrade hatch
+      - name: Test cancelchain
+        run: hatch run test:run
+      - name: Ruff cancelchain
+        run: hatch run test:ruff check src/cancelchain tests

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% set coinbase = block.coinbase %}
+
+{% block page_container -%}
+  <div class="container-fluid">
+    <div class="row my-3"><div class="col">
+      <div class="card bg-light"><div class="card-body">
+        <div class="card-title h5">Block</div>
+        <table class="table table-hover block" style="table-layout:fixed;">
+          <tbody class="font-monospace">
+            <tr>
+              <th class="col-3"><i class="bi-info"></i>&nbsp;Index</th>
+              <td>{{ block.idx }}</td>
+            </tr>
+            <tr>
+              <th class="col-3"><i class="bi-hash"></i>&nbsp;Hash</th>
+              <td>{{ block.block_hash }}</td>
+            </tr>
+            <tr>
+              <th class="col-3"><i class="bi-bullseye"></i>&nbsp;Target</th>
+              <td>{{ block.target }}</td>
+            </tr>
+            <tr>
+              <th class="col-3"><i class="bi-outlet"></i>&nbsp;Version</th>
+              <td>{{ block.version }}</td>
+            </tr>
+            <tr>
+              <th class="col-3"><i class="bi-clock"></i>&nbsp;Timestamp</th>
+              <td>{{ block.timestamp_dt | utc_datetime }}</td>
+            </tr>
+            <tr>
+              <th class="col-3"><i class="bi-bookmark-check"></i>&nbsp;Proof Of Work</th>
+              <td>{{ block.proof_of_work }}</td>
+            </tr>
+            <tr>
+              <th class="col-3"><i class="bi-diagram-2"></i>&nbsp;Merkle Root</th>
+              <td>{{ block.merkle_root }}</td>
+            </tr>
+            <tr>
+              <th class="col-3"><i class="bi-box-arrow-in-left"></i>&nbsp;Previous Block Hash</th>
+              <td><a class="text-dark" href="{{ url_for('browser.block_view', block_hash=block.prev_hash) }}">{{ block.prev_hash }}</a></td>
+            </tr>
+            <tr>
+              <th class="col-3"><i class="bi-box-arrow-in-right"></i>&nbsp;Next Block Hash</th>
+              <td>{% for next_block in block_dao.next %}<a class="text-dark" href="{{ url_for('browser.block_view', block_hash=next_block.block_hash) }}">{{ next_block.block_hash }}</a><br/>{% else %}None{% endfor %}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div></div>
+    </div></div>
+
+    <div class="row my-3"><div class="col">
+      <div class="card bg-light"><div class="card-body">
+        <div class="h5">Block Transactions</div>
+        <table class="table txns table-hover table-sm" style="table-layout:fixed;">
+          <thead>
+            <tr>
+              <th class="col-9">Transaction ID</th>
+              <th>Timestamp</th>
+            </tr>
+          </thead>
+          <tbody class="font-monospace">
+            {%- for t in block.txns %}
+            <tr class="clickable" style="cursor: pointer;" onclick="window.location='{{ url_for('browser.transaction_view', txid=t.txid) }}'">
+              <td>{% if t == coinbase %}<i class="bi-award" data-toggle="tooltip" data-placement="bottom" title="COINBASE"></i>{% else %}<i class="bi-shuffle" data-toggle="tooltip" data-placement="bottom" title="TRANSACTION"></i>{% endif %}&nbsp;{{ t.txid }}</td>
+              <td>{{ t.timestamp_dt | utc_datetime }}</td>
+            </tr>
+            {%- endfor %}
+          </tbody>
+        </table>
+      </div></div>
+    </div></div>
+  </div>
+{%- endblock %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block page_container -%}
+<div class="container-fluid">
+  {%- if chains_page.pages > 0 %}
+  {%- for chain in chains_page.items %}
+  <div class="row my-3"><div class="col">
+    <div class="card bg-light"><div class="card-body">
+      <div class="card-title h5">Chain {{ chain.id }}</div>
+      <table class="table table-hover block" style="table-layout:fixed;">
+        <tbody class="font-monospace">
+          <tr>
+            <th class="col-2"><i class="bi-info"></i>&nbsp;Last Block Index</th>
+            <td>{{ chain.block.idx }}</td>
+          </tr>
+          <tr>
+            <th class="col-2"><i class="bi-hash"></i>&nbsp;Last Block Hash</th>
+            <td><a class="text-dark" href="{{ url_for('browser.block_view', block_hash=chain.block.block_hash) }}">{{ chain.block.block_hash }}</a></td>
+          </tr>
+          <tr>
+            <th class="col-2"><i class="bi-clock"></i>&nbsp;Timestamp</th>
+            <td>{{ chain.block.timestamp | utc_datetime }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div></div>
+  </div></div>
+  {% endfor -%}
+  <ul class="pagination">
+    <li class="page-item {{ '' if chains_page.has_prev else 'disabled' }}">
+      <a class="page-link" href="{{ url_for('browser.index_view', page=chains_page.prev_num) }}">Previous</a>
+    </li>
+    {%- for page in chains_page.iter_pages() %}
+    {%- if page -%}
+    {%- if page != chains_page.page %}
+    <li class="page-item">
+      <a class="page-link" href="{{ url_for('browser.index_view', page=page) }}">{{ page }}</a>
+    </li>
+    {%- else %}
+    <li class="page-item active">
+      <a class="page-link" tabindex="-1" href="{{ url_for('browser.index_view', page=page) }}">{{ page }}</a>
+    </li>
+    {%- endif %}
+    {%- else %}
+    <span class=ellipsis>…</span>
+    {%- endif %}
+    {%- endfor %}
+    <li class="page-item {{ '' if chains_page.has_next else 'disabled' }}">
+      <a class="page-link" href="{{ url_for('browser.index_view', page=chains_page.next_num) }}">Next</a>
+    </li>
+  </ul>
+  {%- else %}
+    <tr>
+      No chains
+    </tr>
+  {%- endif %}
+</div>
+{%- endblock %}

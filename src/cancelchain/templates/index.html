@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block page_container -%}
+<div class="container-fluid">
+  <div class="row my-3"><div class="col">
+    <div class="card bg-light"><div class="card-body">
+      <div class="card-title h5">Current Chain</div>
+      <table class="table table-hover block" style="table-layout:fixed;">
+        <tbody class="font-monospace">
+          {%- if lc -%}
+          <tr>
+            <th class="col-2"><i class="bi-info"></i>&nbsp;Last Block Index</th>
+            <td>{{ lc.last_block.idx }}</td>
+          </tr>
+          <tr>
+            <th class="col-2"><i class="bi-hash"></i>&nbsp;Last Block Hash</th>
+            <td><a class="text-dark" href="{{ url_for('browser.block_view', block_hash=lc.last_block.block_hash) }}">{{ lc.last_block.block_hash }}</a></td>
+          </tr>
+          <tr>
+            <th class="col-2"><i class="bi-clock"></i>&nbsp;Timestamp</th>
+            <td>{{ lc.last_block.timestamp_dt | utc_datetime }}</td>
+          </tr>
+        {%- else %}
+          <tr>
+            No chain
+          </tr>
+        {%- endif %}
+        </tbody>
+      </table>
+    </div></div>
+  </div></div>
+</div>
+{%- endblock %}
