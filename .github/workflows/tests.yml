@@ -16,7 +16,8 @@ jobs:
       - name: Install dependencies
         run:
           pip install --upgrade hatch
+          pip install --upgrade ruff
       - name: Test cancelchain
         run: hatch run test:run
       - name: Ruff cancelchain
-        run: hatch run test:ruff check src/cancelchain tests
+        run: ruff check src tests

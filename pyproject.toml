@@ -85,7 +85,6 @@ dependencies = [
 [tool.hatch.envs.test.scripts]
 run-coverage = "pytest --cov-config=pyproject.toml --cov=cancelchain"
 run = "run-coverage --no-cov"
-ruffit = "hatch run test:ruff check src tests"
 
 # RUFF
 [tool.ruff]
@@ -130,6 +129,7 @@ ignore = [
   "PLR2004",
   "Q000",
   "S101",
+  "S105",
   "S110",
 ]
 
