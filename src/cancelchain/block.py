@@ -9,7 +9,8 @@ from marshmallow import (
     validate,
     validates_schema,
 )
-from pymerkle import MerkleTree
+from pymerkle import MerkleTree, verify_inclusion
+from pymerkle.proof import InvalidProof
 
 from cancelchain.exceptions import (
     ExpiredTransactionError,
@@ -150,19 +151,25 @@ class Block:
         return validate_hash_diff(mill_hash_str(potential_header), self.target)
 
     def build_merkle_tree(self):
-        merkle_tree = MerkleTree()
+        tree = MerkleTree()
         for record in (t.txid for t in self.txns):
-            merkle_tree.encrypt(record)
-        return merkle_tree
+            tree.append_entry(record)
+        return tree
 
     def get_merkle_root(self):
-        root_hash = self.build_merkle_tree().get_root_hash()
+        root_hash = self.build_merkle_tree().root
         return root_hash.decode() if root_hash else None
 
     def in_merkle_tree(self, txid):
-        merkle_tree = self.build_merkle_tree()
-        proof = merkle_tree.generate_audit_proof(merkle_tree.hash(txid))
-        return proof.verify()
+        tree = self.build_merkle_tree()
+        target = tree.root
+        proof = tree.prove_inclusion(txid)
+        try:
+            verify_inclusion(txid, target, proof)
+        except InvalidProof:
+            return False
+        else:
+            return True
 
     def add_txn(self, txn, is_coinbase=False):
         if self.is_sealed:
