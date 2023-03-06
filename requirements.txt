@@ -14,7 +14,7 @@ pg8000==1.29.4
 progress==1.6
 pycryptodome==3.16.0
 pyjwt==2.6.0
-pymerkle==3.0.0
+pymerkle==4.0.0
 python-dotenv==0.21.1
 requests==2.28.2
 sqlalchemy<2.0
