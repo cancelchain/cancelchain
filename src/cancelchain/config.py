@@ -12,7 +12,7 @@ class EnvironSettings:
         return os.environ.get(f'{cls._prefix}{name}')
 
     @classmethod
-    def from_env(cls, app=None):
+    def from_env(cls):
         c = cls()
         for f in fields(c):
             if (v := cls.getenv(f.name)) is not None:
