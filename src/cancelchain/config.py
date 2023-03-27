@@ -12,7 +12,7 @@ class EnvironSettings:
         return os.environ.get(f'{cls._prefix}{name}')
 
     @classmethod
-    def from_env(cls, app=None):
+    def from_env(cls):
         c = cls()
         for f in fields(c):
             if (v := cls.getenv(f.name)) is not None:
@@ -35,8 +35,6 @@ class EnvAppSettings(EnvironSettings):
     SECRET_KEY: str = field(default=None)
     SQLALCHEMY_DATABASE_URI: str = field(default=None)
     CACHE_TYPE: str = field(default='NullCache')
-    CACHE_DIR: str = field(default=None)
-    CACHE_THRESHOLD: int = field(default=100)
     CELERY_BROKER_URL: str = field(default=None)
     NODE_HOST: str = field(default=None)
     PEERS: list[str] = field(default_factory=list)
