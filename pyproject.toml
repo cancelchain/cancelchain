@@ -41,7 +41,6 @@ dependencies = [
   "millify>=0.1",
   "passlib[argon2]>=1.7",
   "pg8000>=1.29",
-  "progress>=1.6",
   "pycryptodome>=3.16",
   "pyjwt>=2.6",
   "pymerkle>=4.0",

@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from http.client import responses
 
 import click
@@ -7,8 +8,6 @@ from flask import current_app
 from flask.cli import AppGroup, with_appcontext
 from humanfriendly import format_timespan
 from millify import millify
-from progress.bar import IncrementalBar
-from progress.counter import Counter
 from rich.live import Live
 from rich.panel import Panel
 from rich.progress import (
@@ -21,7 +20,9 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 from rich.prompt import Confirm
+from rich.rule import Rule
 from rich.table import Table
+from rich.text import Text
 
 from cancelchain.api_client import ApiClient
 from cancelchain.block import Block
@@ -105,58 +106,16 @@ def read_last_line(file):
         return f.readline().decode()
 
 
-class BlockCounterBar():
-    def __init__(self):
-        self.counter = Counter(
-            message='Finding Missing Blocks: ',
-            suffix='blocks'
-        )
-
-    def switch(self):
-        self.finish()
-        self.counter = IncrementalBar(
-            message=' Adding Missing Blocks:',
-            max=self.counter.index,
-            suffix='%(percent).1f%% [%(index)s/%(max)s %(eta)ds]'
-        )
-
-    def next(self, n=1):
-        self.counter.next(n=n)
-
-    def finish(self):
-        if self.counter.index == 0:
-            self.counter.writeln('Up-To-Date')
-        self.counter.finish()
-
-
-class HashCounter(Counter):
-    suffix = ' (%(hps)s hps)'
-
-    @property
-    def hps(self):
-        if self.elapsed:
-            return human_bignum(self.index / self.elapsed)
-        else:
-            return human_bignum(0)
-
-    def update(self):
-        suffix = self.suffix % self
-        message = self.message % self
-        line = ''.join([message, str(human_bignum(self.index))])
-        if self.elapsed:
-            line += suffix
-        self.writeln(line)
-
-
 class ProgressBar():
-    def __init__(self, title, total=None, completed=0):
+    def __init__(self, title, console=console, total=None, completed=0):
         self.progress = Progress(
             TextColumn(title),
             BarColumn(),
-            TextColumn("[{task.completed}/{task.total}]"),
+            TextColumn('[{task.completed}/{task.total}]'),
             TaskProgressColumn(),
             TimeRemainingColumn(),
-            TimeElapsedColumn()
+            TimeElapsedColumn(),
+            console=console
         )
         self.task_id = self.progress.add_task(
             title, total=total, completed=completed
@@ -181,44 +140,57 @@ class ProgressBar():
         self.stop()
 
 
-class BlockSyncProgressBar():
-    def __init__(self):
+class BlockSyncProgress():
+    def __init__(self, peer=None, console=None):
         self.find_blocks_progress = Progress(
             SpinnerColumn(spinner_name='squareCorners'),
             TextColumn('Found {task.completed} Blocks'),
-            TimeElapsedColumn()
+            TextColumn('['),
+            TimeElapsedColumn(),
+            TextColumn(']')
         )
         self.find_blocks_task_id = self.find_blocks_progress.add_task(
-            "Finding", total=None
+            'Finding', total=None
         )
-        self.load_text_col = TextColumn("Waiting...")
+        self.load_text_col = TextColumn('Waiting...')
         self.load_blocks_progress = Progress(
             self.load_text_col,
             BarColumn(),
             TaskProgressColumn(),
             TimeRemainingColumn(),
-            TimeElapsedColumn()
+            TextColumn('['),
+            TimeElapsedColumn(),
+            TextColumn(']')
         )
         self.load_blocks_task_id = self.load_blocks_progress.add_task(
-            "Loading", total=None, start=False
+            'Loading', total=None, start=False
         )
         self.finding_panel = Panel.fit(
             self.find_blocks_progress,
-            title="Finding Blocks",
+            title='Finding Blocks',
             border_style='green',
             padding=(1, 2)
         )
         self.loading_panel = Panel.fit(
             self.load_blocks_progress,
-            title="Loading Blocks",
+            title='Loading Blocks',
             border_style='dim',
             padding=(1, 2)
         )
         progress_table = Table.grid()
         progress_table.add_row(self.finding_panel, self.loading_panel)
-        self.live = Live(progress_table, refresh_per_second=10)
+        self.live = Live(
+            progress_table, console=console, refresh_per_second=10
+        )
         self.progress = self.find_blocks_progress
         self.task_id = self.find_blocks_task_id
+        self.console.print(
+            Rule(title=f'Synchronizing with peer {peer}', align='left')
+        )
+
+    @property
+    def console(self):
+        return self.live.console
 
     def next(self, n=1):
         self.progress.advance(self.task_id, advance=n)
@@ -234,7 +206,7 @@ class BlockSyncProgressBar():
     def switch(self):
         block_count = self.complete_find()
         self.load_text_col.text_format = (
-            "Loading Block {task.completed} of {task.total}"
+            'Loading Block {task.completed} of {task.total}'
         )
         self.load_blocks_progress.update(
             self.load_blocks_task_id, total=block_count
@@ -245,7 +217,7 @@ class BlockSyncProgressBar():
 
     def finish(self):
         self.complete_find()
-        self.load_text_col.text_format = "Loaded {task.completed} Blocks"
+        self.load_text_col.text_format = 'Loaded {task.completed} Blocks'
 
     def __enter__(self):
         self.live.__enter__()
@@ -256,12 +228,108 @@ class BlockSyncProgressBar():
 
 
 class MillingProgress():
-    def __init__(self):
-        self.progress = Progress()
+    def __init__(self, console=None):
+        self.block = None
+        self.chain = None
+        self.progress = Progress(
+            SpinnerColumn(spinner_name='aesthetic', style='milling'),
+            TextColumn('{task.fields[hash_count]}h @'),
+            TextColumn('{task.fields[hps]} hps'),
+            TextColumn('['),
+            TimeElapsedColumn(),
+            TextColumn(']')
+        )
         self.task_id = self.progress.add_task(
-            "Milling", total=None, fields={'hps': 0}
+            'Milling', total=None, hash_count=0, hps=0
         )
         self.task = self.progress.tasks[0]
+        self.panel = Panel.fit(
+            self.progress,
+            title="Milling",
+            border_style='milling'
+        )
+        self.live = Live(self.panel, console=console, refresh_per_second=10)
+
+    @property
+    def hash_count(self):
+        return str(human_bignum(self.task.completed))
+
+    @property
+    def hps(self):
+        if self.task.elapsed:
+            return human_bignum(self.task.completed / self.task.elapsed)
+        else:
+            return human_bignum(0)
+
+    @property
+    def console(self):
+        return self.live.console
+
+    @property
+    def elapsed(self):
+        if self.task.elapsed is None:
+            return Text("-:--:--", style="progress.elapsed")
+        delta = timedelta(seconds=int(self.task.elapsed))
+        return Text(str(delta), style="progress.elapsed")
+
+    def next(self, n=1):
+        self.progress.update(
+            self.task_id, advance=n, hash_count=self.hash_count, hps=self.hps
+        )
+
+    def next_block(self, block, chain):
+        self.block = block
+        self.chain = chain
+        self.progress.reset(self.task_id)
+
+    def __enter__(self):
+        self.live.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.live.__exit__(exc_type, exc_val, exc_tb)
+
+    def print_start(self):
+        self.console.print()
+        self.console.print(
+            Rule(
+                title=f'Block Index {self.block.idx}',
+                align='left',
+                style='milling'
+            )
+        )
+        start_table = Table(show_header=False, border_style='milling')
+        start_table.add_column('key', justify='right')
+        start_table.add_column('value', justify='left')
+        start_table.add_row('Block', str(self.block.idx))
+        start_table.add_row(
+            'Chain', self.chain.block_hash if self.chain else 'GENESIS'
+        )
+        start_table.add_row('Target', self.block.target)
+        start_table.add_row('Started', now_iso())
+        self.console.print(start_table)
+
+    def print_stop(self, milled_block):
+        stop_table = Table(show_header=False)
+        stop_table.add_column('key', justify='right')
+        stop_table.add_column('value', justify='left')
+        stop_table.add_row('Stopped', now_iso())
+        stop_table.add_row('Elapsed', self.elapsed)
+        stop_table.add_row(
+            'Hashes', f'{self.hash_count} @ {self.hps} hps'
+        )
+        if milled_block:
+            pofw = milled_block.proof_of_work
+            stop_table.add_row('POW', f'{pofw} ({human_bignum(pofw)})')
+            stop_table.add_row('Block', f'{milled_block.block_hash}')
+            stop_table.border_style = 'green'
+        elif self.block.proof_of_work is not None:
+            stop_table.add_row('POW', 'SCOOPED (but so close)')
+            stop_table.border_style = 'yellow'
+        else:
+            stop_table.add_row('POW', 'SCOOPED')
+            stop_table.border_style = 'red'
+        self.console.print(stop_table)
 
 
 @click.command('init', help='Initialize the database.')
@@ -287,14 +355,12 @@ def sync_blocks_command():
             clients=current_app.clients,
             logger=current_app.logger
         )
-        success = False
-        for latest_block, _ in node.request_latest_blocks():
+        for latest_block, peer in node.request_latest_blocks():
             try:
-                progress_bar = BlockSyncProgressBar()
+                console.print()
+                progress_bar = BlockSyncProgress(peer=peer, console=console)
                 with progress_bar as progress:
-                    filled = node.fill_chain(latest_block, progress=progress)
-                    if not success:
-                        success = filled
+                    node.fill_chain(latest_block, progress=progress)
                     progress.finish()
             except requests.HTTPError as e:
                 console.print(
@@ -313,7 +379,9 @@ def validate_chain_command():
     try:
         node = Node(logger=current_app.logger)
         lc = node.longest_chain
-        progress_bar = ProgressBar('Validating Chain', total=lc.length)
+        progress_bar = ProgressBar(
+            'Validating Chain', console=console, total=lc.length
+        )
         with progress_bar as progress:
             lc.validate(progress=progress)
         console.print('The block chain is valid.', style='success')
@@ -344,25 +412,22 @@ def export_blocks_command(file):
                 raise Exception(CHAIN_MISMATCH_MSG)
             append_blocks = True
         last_idx = last_block.idx if last_block is not None else -1
-        num_blocks = lc_dao.block.idx - last_idx
-        if num_blocks:
-            progress_bar = ProgressBar(
-                "Exporting Blocks",
-                total=lc_dao.block.idx+1,
-                completed=last_block.idx+1 if last_block is not None else 0
-            )
-            with open(
-                file, 'a' if append_blocks else 'w', encoding='utf-8'
-            ) as f, progress_bar as progress:
-                block_dao = lc_dao.get_block(idx=last_idx+1)
-                while block_dao is not None:
-                    block = Block.from_dao(block_dao)
-                    f.write(block.to_json())
-                    f.write('\n')
-                    progress.next()
-                    block_dao = lc_dao.next_block(block_dao)
-        else:
-            console.print('Up-To-Date', style='success')
+        progress_bar = ProgressBar(
+            "Exporting Blocks",
+            console=console,
+            total=lc_dao.block.idx+1,
+            completed=last_block.idx+1 if last_block is not None else 0
+        )
+        with open(
+            file, 'a' if append_blocks else 'w', encoding='utf-8'
+        ) as f, progress_bar as progress:
+            block_dao = lc_dao.get_block(idx=last_idx+1)
+            while block_dao is not None:
+                block = Block.from_dao(block_dao)
+                f.write(block.to_json())
+                f.write('\n')
+                progress.next()
+                block_dao = lc_dao.next_block(block_dao)
     except Exception:
         console.print_exception()
         console.print('Export failed', style='error')
@@ -382,6 +447,7 @@ def import_blocks_command(file):
         with open(file, encoding='utf-8') as f:
             progress_bar = ProgressBar(
                 "Importing Blocks",
+                console=console,
                 total=sum(1 for line in f)
             )
         with open(file, encoding='utf-8') as f, progress_bar as progress:
@@ -443,10 +509,6 @@ def mill_command(address, multi, rounds, worksize, wallet, peer, blocks):
     ADDRESS is the address to use for milling coinbase rewards.
     """
     milling_wallet = address_wallet(address, wallet_file=wallet)
-    console.print(
-        f"Miller Address: {milling_wallet.address}",
-        style='important'
-    )
     if peer is not None and current_app.clients.get(peer) is None:
         msg = f"Peer {peer} client not configured."
         raise Exception(msg)
@@ -458,63 +520,46 @@ def mill_command(address, multi, rounds, worksize, wallet, peer, blocks):
         milling_wallet=milling_wallet,
         milling_peer=peer
     )
-    try:
-        console.print('Synchronizing the block chain...', style='info')
-        progress = BlockCounterBar()
-        miller.poll_latest_blocks(progress=progress)
-        console.print('Synchronized.', style='success')
-    except Exception:
-        console.print_exception()
-        db.session.rollback()
-    block_count = 0
-    while (not blocks) or (block_count < blocks):
+    if peer:
         try:
-            console.print()
-            chain = miller.longest_chain
-            if chain:
-                console.print(f'Chain #{chain.cid}: {chain.block_hash}')
-            else:
-                console.print('GENESIS')
-            block = miller.create_block()
-            console.print(f'Block #{block.idx} (Target: {block.target})')
-            console.print(f'  Started: {now_iso()}')
-            try:
-                counter = HashCounter('  Hashes:  ')
-                counter.next(0)
-                milled_block = miller.mill_block(
-                    block,
-                    mp=multi,
-                    rounds=rounds,
-                    worksize=worksize,
-                    progress=counter
-                )
-            finally:
-                counter.finish()
-                block_count += 1
-            if milled_block:
-                pofw = milled_block.proof_of_work
-                console.print(
-                    f'  POW:     {pofw} ({human_bignum(pofw)})',
-                    style='success'
-                )
-            elif block.proof_of_work is not None:
-                console.print(
-                    '  POW:     SCOOPED (but so close)',
-                    style='info'
-                )
-            else:
-                console.print('  POW:     SCOOPED', style='info')
-            console.print(f'  Stopped: {now_iso()}')
-            console.print(
-                (
-                    f'  Elapsed: {human_timespan(counter.elapsed)} '
-                    f'({counter.hps} hps)'
-                ),
-                style='important'
-            )
+            progress_bar = BlockSyncProgress(peer=peer, console=console)
+            with progress_bar as progress:
+                miller.poll_latest_blocks(progress=progress)
+                progress.finish()
         except Exception:
             console.print_exception()
             db.session.rollback()
+    block_count = 0
+    milling_progress = MillingProgress(console=console)
+    with milling_progress as progress:
+        progress.console.print()
+        progress.console.print(
+            Rule(
+                title=f'Milling as {milling_wallet.address}',
+                align='left',
+                style='milling'
+            )
+        )
+        while (not blocks) or (block_count < blocks):
+            try:
+                chain = miller.longest_chain
+                block = miller.create_block()
+                progress.next_block(block, chain)
+                progress.print_start()
+                try:
+                    milled_block = miller.mill_block(
+                        block,
+                        mp=multi,
+                        rounds=rounds,
+                        worksize=worksize,
+                        progress=progress
+                    )
+                finally:
+                    block_count += 1
+                progress.print_stop(milled_block)
+            except Exception:
+                progress.console.print_exception()
+                db.session.rollback()
 
 
 txn_cli = AppGroup('txn', help='Command group to create transactions.')

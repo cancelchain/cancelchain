@@ -26,7 +26,6 @@ from cancelchain.payload import Inflow, Outflow
 from cancelchain.transaction import Transaction
 from cancelchain.util import now, now_iso
 from cancelchain.wallet import Wallet
-from progress.counter import Counter
 
 TEST_TARGET = 'F' * 64
 
@@ -224,7 +223,7 @@ def test_mill(wallet):
     block = Block()
     chain.link_block(block)
     chain.seal_block(block, wallet)
-    block.mill(progress=Counter())
+    block.mill()
 
 
 @pytest.mark.multi
@@ -233,7 +232,7 @@ def test_mill_mp(wallet):
     block = Block()
     chain.link_block(block)
     chain.seal_block(block, wallet)
-    block.mill(mp=True, progress=Counter())
+    block.mill(mp=True)
 
 
 def test_db(add_chain_block, app, time_machine, wallet):

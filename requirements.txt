@@ -11,7 +11,6 @@ marshmallow==3.19.0
 millify==0.1.1
 passlib[argon2]==1.7.4
 pg8000==1.29.4
-progress==1.6
 pycryptodome==3.16.0
 pyjwt==2.6.0
 pymerkle==4.0.0
