@@ -152,16 +152,18 @@ class BlockSyncProgress():
     def __init__(self, peer=None, console=None):
         self.find_progress = Progress(
             SpinnerColumn(spinner_name='aesthetic', style='none'),
-            TextColumn('Found {task.completed} Blocks'),
+            TextColumn('{task.completed} Blocks'),
             TextColumn('['),
             TimeElapsedColumn(),
             TextColumn(']')
         )
         self.find_task_id = self.find_progress.add_task('Finding', total=None)
-        self.load_text = TextColumn('Waiting...')
+        self.load_title_text = TextColumn('Waiting...')
+        self.load_count_text = TextColumn('')
         self.load_progress = Progress(
-            self.load_text,
+            self.load_title_text,
             BarColumn(),
+            self.load_count_text,
             TaskProgressColumn(),
             TimeRemainingColumn(),
             TextColumn('['),
@@ -205,14 +207,13 @@ class BlockSyncProgress():
         self.find_progress.update(
             self.find_task_id, total=block_count
         )
+        self.load_title_text.text_format = ''
         return block_count
 
     def switch(self):
         block_count = self.complete_find()
         self.loading_panel.border_style = 'none'
-        self.load_text.text_format = (
-            'Loading Block {task.completed} of {task.total}'
-        )
+        self.load_count_text.text_format = '{task.completed}/{task.total}'
         self.load_progress.update(self.load_task_id, total=block_count)
         self.load_progress.start_task(self.load_task_id)
         self.progress = self.load_progress
@@ -220,7 +221,6 @@ class BlockSyncProgress():
 
     def finish(self):
         self.complete_find()
-        self.load_text.text_format = 'Loaded {task.completed} Blocks'
 
     def __enter__(self):
         self.live.__enter__()
