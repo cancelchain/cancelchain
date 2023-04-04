@@ -8,7 +8,8 @@ theme = Theme({
     'error': 'bold red',
     'milling': 'cyan',
     'progress.elapsed': 'none',
-    'rule.text': 'bold'
+    'progress.percentage': 'none',
+    'progress.remaining': 'none'
 })
 
 console = Console(theme=theme, highlight=False)

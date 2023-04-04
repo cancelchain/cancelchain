@@ -36,6 +36,7 @@ from cancelchain.transaction import Transaction
 from cancelchain.util import host_address, now_iso
 from cancelchain.wallet import Wallet
 
+REFRESH_PER_SECOND = 10
 CHAIN_MISMATCH_MSG = 'Chain/file mismatch'
 
 def grumble_to_curmudgeons(grumble):
@@ -121,40 +122,30 @@ class ProgressBar():
             title, total=total, completed=completed
         )
 
-    def start(self):
-        self.progress.start()
-        self.progress.start_task(self.task_id)
-
-    def stop(self):
-        self.progress.stop_task(self.task_id)
-        self.progress.stop()
-
     def next(self, n=1):
         self.progress.advance(self.task_id, advance=n)
 
     def __enter__(self):
-        self.start()
+        self.progress.__enter__()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.stop()
+        self.progress.__exit__(exc_type, exc_val, exc_tb)
 
 
 class BlockSyncProgress():
     def __init__(self, peer=None, console=None):
-        self.find_blocks_progress = Progress(
+        self.find_progress = Progress(
             SpinnerColumn(spinner_name='squareCorners'),
             TextColumn('Found {task.completed} Blocks'),
             TextColumn('['),
             TimeElapsedColumn(),
             TextColumn(']')
         )
-        self.find_blocks_task_id = self.find_blocks_progress.add_task(
-            'Finding', total=None
-        )
-        self.load_text_col = TextColumn('Waiting...')
-        self.load_blocks_progress = Progress(
-            self.load_text_col,
+        self.find_task_id = self.find_progress.add_task('Finding', total=None)
+        self.load_text = TextColumn('Waiting...')
+        self.load_progress = Progress(
+            self.load_text,
             BarColumn(),
             TaskProgressColumn(),
             TimeRemainingColumn(),
@@ -162,30 +153,32 @@ class BlockSyncProgress():
             TimeElapsedColumn(),
             TextColumn(']')
         )
-        self.load_blocks_task_id = self.load_blocks_progress.add_task(
+        self.load_task_id = self.load_progress.add_task(
             'Loading', total=None, start=False
         )
         self.finding_panel = Panel.fit(
-            self.find_blocks_progress,
+            self.find_progress,
             title='Finding Blocks',
             border_style='green',
-            padding=(1, 2)
+            # padding=(1, 1)
         )
         self.loading_panel = Panel.fit(
-            self.load_blocks_progress,
+            self.load_progress,
             title='Loading Blocks',
             border_style='dim',
-            padding=(1, 2)
+            # padding=(1, 1)
         )
         progress_table = Table.grid()
         progress_table.add_row(self.finding_panel, self.loading_panel)
         self.live = Live(
-            progress_table, console=console, refresh_per_second=10
+            progress_table,
+            console=console,
+            refresh_per_second=REFRESH_PER_SECOND
         )
-        self.progress = self.find_blocks_progress
-        self.task_id = self.find_blocks_task_id
+        self.progress = self.find_progress
+        self.task_id = self.find_task_id
         self.console.print(
-            Rule(title=f'Synchronizing with peer {peer}', align='left')
+            Rule(title=f'Synchronizing with peer [bold]{peer}', align='left')
         )
 
     @property
@@ -196,28 +189,26 @@ class BlockSyncProgress():
         self.progress.advance(self.task_id, advance=n)
 
     def complete_find(self):
-        block_count = self.find_blocks_progress.tasks[0].completed
-        self.find_blocks_progress.update(
-            self.find_blocks_task_id, total=block_count
+        block_count = self.find_progress.tasks[0].completed
+        self.find_progress.update(
+            self.find_task_id, total=block_count
         )
         self.loading_panel.border_style = 'green'
         return block_count
 
     def switch(self):
         block_count = self.complete_find()
-        self.load_text_col.text_format = (
+        self.load_text.text_format = (
             'Loading Block {task.completed} of {task.total}'
         )
-        self.load_blocks_progress.update(
-            self.load_blocks_task_id, total=block_count
-        )
-        self.load_blocks_progress.start_task(self.load_blocks_task_id)
-        self.progress = self.load_blocks_progress
-        self.task_id = self.load_blocks_task_id
+        self.load_progress.update(self.load_task_id, total=block_count)
+        self.load_progress.start_task(self.load_task_id)
+        self.progress = self.load_progress
+        self.task_id = self.load_task_id
 
     def finish(self):
         self.complete_find()
-        self.load_text_col.text_format = 'Loaded {task.completed} Blocks'
+        self.load_text.text_format = 'Loaded {task.completed} Blocks'
 
     def __enter__(self):
         self.live.__enter__()
@@ -248,7 +239,11 @@ class MillingProgress():
             title="Milling",
             border_style='milling'
         )
-        self.live = Live(self.panel, console=console, refresh_per_second=10)
+        self.live = Live(
+            self.panel,
+            console=console,
+            refresh_per_second=REFRESH_PER_SECOND
+        )
 
     @property
     def hash_count(self):
@@ -290,14 +285,6 @@ class MillingProgress():
         self.live.__exit__(exc_type, exc_val, exc_tb)
 
     def print_start(self):
-        self.console.print()
-        self.console.print(
-            Rule(
-                title=f'Block Index {self.block.idx}',
-                align='left',
-                style='milling'
-            )
-        )
         start_table = Table(show_header=False, border_style='milling')
         start_table.add_column('key', justify='right')
         start_table.add_column('value', justify='left')
@@ -330,6 +317,7 @@ class MillingProgress():
             stop_table.add_row('POW', 'SCOOPED')
             stop_table.border_style = 'red'
         self.console.print(stop_table)
+        self.console.print(Rule(style=stop_table.border_style))
 
 
 @click.command('init', help='Initialize the database.')
@@ -357,7 +345,6 @@ def sync_blocks_command():
         )
         for latest_block, peer in node.request_latest_blocks():
             try:
-                console.print()
                 progress_bar = BlockSyncProgress(peer=peer, console=console)
                 with progress_bar as progress:
                     node.fill_chain(latest_block, progress=progress)
@@ -535,7 +522,7 @@ def mill_command(address, multi, rounds, worksize, wallet, peer, blocks):
         progress.console.print()
         progress.console.print(
             Rule(
-                title=f'Milling as {milling_wallet.address}',
+                title=f'Milling as address [bold]{milling_wallet.address}',
                 align='left',
                 style='milling'
             )
