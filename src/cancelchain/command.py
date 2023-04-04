@@ -36,7 +36,7 @@ from cancelchain.transaction import Transaction
 from cancelchain.util import host_address, now_iso
 from cancelchain.wallet import Wallet
 
-REFRESH_PER_SECOND = 10
+REFRESH_PER_SECOND = 8
 CHAIN_MISMATCH_MSG = 'Chain/file mismatch'
 
 def grumble_to_curmudgeons(grumble):
@@ -108,35 +108,50 @@ def read_last_line(file):
 
 
 class ProgressBar():
-    def __init__(self, title, console=console, total=None, completed=0):
+    def __init__(self, title, console=None, total=None, completed=0):
         self.progress = Progress(
-            TextColumn(title),
+            # TextColumn(title),
             BarColumn(),
-            TextColumn('[{task.completed}/{task.total}]'),
+            TextColumn('{task.completed}/{task.total}'),
             TaskProgressColumn(),
             TimeRemainingColumn(),
+            TextColumn('['),
             TimeElapsedColumn(),
+            TextColumn(']'),
             console=console
         )
         self.task_id = self.progress.add_task(
             title, total=total, completed=completed
         )
+        self.panel = Panel.fit(
+            self.progress,
+            title=title
+        )
+        self.live = Live(
+            self.panel,
+            console=console,
+            refresh_per_second=REFRESH_PER_SECOND
+        )
+
+    @property
+    def console(self):
+        return self.live.console
 
     def next(self, n=1):
         self.progress.advance(self.task_id, advance=n)
 
     def __enter__(self):
-        self.progress.__enter__()
+        self.live.__enter__()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.progress.__exit__(exc_type, exc_val, exc_tb)
+        self.live.__exit__(exc_type, exc_val, exc_tb)
 
 
 class BlockSyncProgress():
     def __init__(self, peer=None, console=None):
         self.find_progress = Progress(
-            SpinnerColumn(spinner_name='squareCorners'),
+            SpinnerColumn(spinner_name='aesthetic', style='none'),
             TextColumn('Found {task.completed} Blocks'),
             TextColumn('['),
             TimeElapsedColumn(),
@@ -158,15 +173,12 @@ class BlockSyncProgress():
         )
         self.finding_panel = Panel.fit(
             self.find_progress,
-            title='Finding Blocks',
-            border_style='green',
-            # padding=(1, 1)
+            title='Finding Blocks'
         )
         self.loading_panel = Panel.fit(
             self.load_progress,
             title='Loading Blocks',
-            border_style='dim',
-            # padding=(1, 1)
+            border_style='dim'
         )
         progress_table = Table.grid()
         progress_table.add_row(self.finding_panel, self.loading_panel)
@@ -193,11 +205,11 @@ class BlockSyncProgress():
         self.find_progress.update(
             self.find_task_id, total=block_count
         )
-        self.loading_panel.border_style = 'green'
         return block_count
 
     def switch(self):
         block_count = self.complete_find()
+        self.loading_panel.border_style = 'none'
         self.load_text.text_format = (
             'Loading Block {task.completed} of {task.total}'
         )
@@ -305,19 +317,24 @@ class MillingProgress():
         stop_table.add_row(
             'Hashes', f'{self.hash_count} @ {self.hps} hps'
         )
+        label_text = Text('POW')
+        style = 'milling.milled'
         if milled_block:
             pofw = milled_block.proof_of_work
-            stop_table.add_row('POW', f'{pofw} ({human_bignum(pofw)})')
+            value_text = Text(f'{pofw} ({human_bignum(pofw)})', style=style)
+            stop_table.add_row(label_text, value_text)
             stop_table.add_row('Block', f'{milled_block.block_hash}')
-            stop_table.border_style = 'green'
         elif self.block.proof_of_work is not None:
-            stop_table.add_row('POW', 'SCOOPED (but so close)')
-            stop_table.border_style = 'yellow'
+            style = 'milling.close'
+            value_text = Text('SCOOPED (but so close)', style=style)
+            stop_table.add_row(label_text, value_text)
         else:
-            stop_table.add_row('POW', 'SCOOPED')
-            stop_table.border_style = 'red'
+            style = 'milling.scooped'
+            value_text = Text('SCOOPED', style=style)
+            stop_table.add_row(label_text, value_text)
+        stop_table.border_style = style
         self.console.print(stop_table)
-        self.console.print(Rule(style=stop_table.border_style))
+        self.console.print(Rule(style=style))
 
 
 @click.command('init', help='Initialize the database.')
@@ -371,7 +388,6 @@ def validate_chain_command():
         )
         with progress_bar as progress:
             lc.validate(progress=progress)
-        console.print('The block chain is valid.', style='success')
     except Exception as e:
         console.print(f'The block chain is invalid: {e}', style='error')
 

@@ -43,7 +43,7 @@ def test_validate(app, mill_block, runner, wallet):
     with app.app_context():
         mill_block(wallet)
         result = runner.invoke(args=['validate'])
-        assert 'The block chain is valid.' in result.output
+        assert '100%' in result.output
 
 
 def test_export_import(app, mill_block, runner, wallet):
