@@ -43,7 +43,7 @@ def test_validate(app, mill_block, runner, wallet):
     with app.app_context():
         mill_block(wallet)
         result = runner.invoke(args=['validate'])
-        assert 'The block chain is valid.' in result.output
+        assert '100%' in result.output
 
 
 def test_export_import(app, mill_block, runner, wallet):
@@ -51,11 +51,11 @@ def test_export_import(app, mill_block, runner, wallet):
         mill_block(wallet)
         with NamedTemporaryFile(suffix='.jsonl') as f:
             result = runner.invoke(args=['export', f.name])
-            assert 'Export complete.' in result.output
+            assert '100%' in result.output
             result = runner.invoke(args=['import', f.name])
-            assert 'Import complete.' in result.output
+            assert '100%' in result.output
             result = runner.invoke(args=['export', f.name])
-            assert 'Up-To-Date' in result.output
+            assert '100%' in result.output
 
 
 def run_txn_transfer(
@@ -237,7 +237,7 @@ def test_create_wallet(app, runner):
                     'wallet', 'create', '--walletdir', walletdir
                 ]
             )
-            wallet_filename = result.output.strip()
+            wallet_filename = result.output.strip()[len('Created '):]
             assert Wallet.from_file(wallet_filename) is not None
 
 
@@ -307,10 +307,10 @@ def test_mill(app, runner, wallet):
     with app.app_context():
         result = runner.invoke(args=['mill', wallet.address, '--blocks', 2])
         assert 'GENESIS' in result.output
-        assert 'Block #0' in result.output
-        assert 'Block #1' in result.output
+        assert 'Block │ 0' in result.output
+        assert 'Block │ 1' in result.output
         result = runner.invoke(
             args=['mill', wallet.address, '--blocks', 2]
         )
-        assert 'Block #2' in result.output
-        assert 'Block #3' in result.output
+        assert 'Block │ 2' in result.output
+        assert 'Block │ 3' in result.output

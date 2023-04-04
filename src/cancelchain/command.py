@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from http.client import responses
 
 import click
@@ -7,12 +8,26 @@ from flask import current_app
 from flask.cli import AppGroup, with_appcontext
 from humanfriendly import format_timespan
 from millify import millify
-from progress.bar import IncrementalBar
-from progress.counter import Counter
+from rich.live import Live
+from rich.panel import Panel
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
+from rich.prompt import Confirm
+from rich.rule import Rule
+from rich.table import Table
+from rich.text import Text
 
 from cancelchain.api_client import ApiClient
 from cancelchain.block import Block
 from cancelchain.chain import CURMUDGEON_PER_GRUMBLE
+from cancelchain.console import console
 from cancelchain.database import db
 from cancelchain.miller import Miller
 from cancelchain.node import Node
@@ -21,6 +36,7 @@ from cancelchain.transaction import Transaction
 from cancelchain.util import host_address, now_iso
 from cancelchain.wallet import Wallet
 
+REFRESH_PER_SECOND = 8
 CHAIN_MISMATCH_MSG = 'Chain/file mismatch'
 
 def grumble_to_curmudgeons(grumble):
@@ -91,47 +107,234 @@ def read_last_line(file):
         return f.readline().decode()
 
 
-class BlockCounterBar():
-    def __init__(self):
-        self.counter = Counter(
-            message='Finding Missing Blocks: ',
-            suffix='blocks'
+class ProgressBar():
+    def __init__(self, title, console=None, total=None, completed=0):
+        self.progress = Progress(
+            # TextColumn(title),
+            BarColumn(),
+            TextColumn('{task.completed}/{task.total}'),
+            TaskProgressColumn(),
+            TimeRemainingColumn(),
+            TextColumn('['),
+            TimeElapsedColumn(),
+            TextColumn(']'),
+            console=console
+        )
+        self.task_id = self.progress.add_task(
+            title, total=total, completed=completed
+        )
+        self.panel = Panel.fit(
+            self.progress,
+            title=title
+        )
+        self.live = Live(
+            self.panel,
+            console=console,
+            refresh_per_second=REFRESH_PER_SECOND
         )
 
-    def switch(self):
-        self.finish()
-        self.counter = IncrementalBar(
-            message=' Adding Missing Blocks:',
-            max=self.counter.index,
-            suffix='%(percent).1f%% [%(index)s/%(max)s %(eta)ds]'
-        )
+    @property
+    def console(self):
+        return self.live.console
 
     def next(self, n=1):
-        self.counter.next(n=n)
+        self.progress.advance(self.task_id, advance=n)
+
+    def __enter__(self):
+        self.live.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.live.__exit__(exc_type, exc_val, exc_tb)
+
+
+class BlockSyncProgress():
+    def __init__(self, peer=None, console=None):
+        self.find_progress = Progress(
+            SpinnerColumn(spinner_name='aesthetic', style='none'),
+            TextColumn('{task.completed} Blocks'),
+            TextColumn('['),
+            TimeElapsedColumn(),
+            TextColumn(']')
+        )
+        self.find_task_id = self.find_progress.add_task('Finding', total=None)
+        self.load_title_text = TextColumn('Waiting...')
+        self.load_count_text = TextColumn('')
+        self.load_progress = Progress(
+            self.load_title_text,
+            BarColumn(),
+            self.load_count_text,
+            TaskProgressColumn(),
+            TimeRemainingColumn(),
+            TextColumn('['),
+            TimeElapsedColumn(),
+            TextColumn(']')
+        )
+        self.load_task_id = self.load_progress.add_task(
+            'Loading', total=None, start=False
+        )
+        self.finding_panel = Panel.fit(
+            self.find_progress,
+            title='Finding Blocks'
+        )
+        self.loading_panel = Panel.fit(
+            self.load_progress,
+            title='Loading Blocks',
+            border_style='dim'
+        )
+        progress_table = Table.grid()
+        progress_table.add_row(self.finding_panel, self.loading_panel)
+        self.live = Live(
+            progress_table,
+            console=console,
+            refresh_per_second=REFRESH_PER_SECOND
+        )
+        self.progress = self.find_progress
+        self.task_id = self.find_task_id
+        self.console.print(
+            Rule(title=f'Synchronizing with peer [bold]{peer}', align='left')
+        )
+
+    @property
+    def console(self):
+        return self.live.console
+
+    def next(self, n=1):
+        self.progress.advance(self.task_id, advance=n)
+
+    def complete_find(self):
+        block_count = self.find_progress.tasks[0].completed
+        self.find_progress.update(
+            self.find_task_id, total=block_count
+        )
+        self.load_title_text.text_format = ''
+        return block_count
+
+    def switch(self):
+        block_count = self.complete_find()
+        self.loading_panel.border_style = 'none'
+        self.load_count_text.text_format = '{task.completed}/{task.total}'
+        self.load_progress.update(self.load_task_id, total=block_count)
+        self.load_progress.start_task(self.load_task_id)
+        self.progress = self.load_progress
+        self.task_id = self.load_task_id
 
     def finish(self):
-        if self.counter.index == 0:
-            self.counter.writeln('Up-To-Date')
-        self.counter.finish()
+        self.complete_find()
+
+    def __enter__(self):
+        self.live.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.live.__exit__(exc_type, exc_val, exc_tb)
 
 
-class HashCounter(Counter):
-    suffix = ' (%(hps)s hps)'
+class MillingProgress():
+    def __init__(self, console=None):
+        self.block = None
+        self.chain = None
+        self.progress = Progress(
+            SpinnerColumn(spinner_name='aesthetic', style='milling'),
+            TextColumn('{task.fields[hash_count]}h @'),
+            TextColumn('{task.fields[hps]} hps'),
+            TextColumn('['),
+            TimeElapsedColumn(),
+            TextColumn(']')
+        )
+        self.task_id = self.progress.add_task(
+            'Milling', total=None, hash_count=0, hps=0
+        )
+        self.task = self.progress.tasks[0]
+        self.panel = Panel.fit(
+            self.progress,
+            title="Milling",
+            border_style='milling'
+        )
+        self.live = Live(
+            self.panel,
+            console=console,
+            refresh_per_second=REFRESH_PER_SECOND
+        )
+
+    @property
+    def hash_count(self):
+        return str(human_bignum(self.task.completed))
 
     @property
     def hps(self):
-        if self.elapsed:
-            return human_bignum(self.index / self.elapsed)
+        if self.task.elapsed:
+            return human_bignum(self.task.completed / self.task.elapsed)
         else:
             return human_bignum(0)
 
-    def update(self):
-        suffix = self.suffix % self
-        message = self.message % self
-        line = ''.join([message, str(human_bignum(self.index))])
-        if self.elapsed:
-            line += suffix
-        self.writeln(line)
+    @property
+    def console(self):
+        return self.live.console
+
+    @property
+    def elapsed(self):
+        if self.task.elapsed is None:
+            return Text("-:--:--", style="progress.elapsed")
+        delta = timedelta(seconds=int(self.task.elapsed))
+        return Text(str(delta), style="progress.elapsed")
+
+    def next(self, n=1):
+        self.progress.update(
+            self.task_id, advance=n, hash_count=self.hash_count, hps=self.hps
+        )
+
+    def next_block(self, block, chain):
+        self.block = block
+        self.chain = chain
+        self.progress.reset(self.task_id)
+
+    def __enter__(self):
+        self.live.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.live.__exit__(exc_type, exc_val, exc_tb)
+
+    def print_start(self):
+        start_table = Table(show_header=False, border_style='milling')
+        start_table.add_column('key', justify='right')
+        start_table.add_column('value', justify='left')
+        start_table.add_row('Block', str(self.block.idx))
+        start_table.add_row(
+            'Chain', self.chain.block_hash if self.chain else 'GENESIS'
+        )
+        start_table.add_row('Target', self.block.target)
+        start_table.add_row('Started', now_iso())
+        self.console.print(start_table)
+
+    def print_stop(self, milled_block):
+        stop_table = Table(show_header=False)
+        stop_table.add_column('key', justify='right')
+        stop_table.add_column('value', justify='left')
+        stop_table.add_row('Stopped', now_iso())
+        stop_table.add_row('Elapsed', self.elapsed)
+        stop_table.add_row(
+            'Hashes', f'{self.hash_count} @ {self.hps} hps'
+        )
+        label_text = Text('POW')
+        style = 'milling.milled'
+        if milled_block:
+            pofw = milled_block.proof_of_work
+            value_text = Text(f'{pofw} ({human_bignum(pofw)})', style=style)
+            stop_table.add_row(label_text, value_text)
+            stop_table.add_row('Block', f'{milled_block.block_hash}')
+        elif self.block.proof_of_work is not None:
+            style = 'milling.close'
+            value_text = Text('SCOOPED (but so close)', style=style)
+            stop_table.add_row(label_text, value_text)
+        else:
+            style = 'milling.scooped'
+            value_text = Text('SCOOPED', style=style)
+            stop_table.add_row(label_text, value_text)
+        stop_table.border_style = style
+        self.console.print(stop_table)
+        self.console.print(Rule(style=style))
 
 
 @click.command('init', help='Initialize the database.')
@@ -139,9 +342,9 @@ class HashCounter(Counter):
 def init_db_command():
     try:
         db.create_all()
-        click.secho('Initialized the database.', fg='green')
+        console.print('Initialized the database.', style='success')
     except Exception as e:
-        click.secho(f'Initialization failed: {e}', fg='red')
+        console.print(f'Initialization failed: {e}', style='error')
 
 
 @click.command(
@@ -157,28 +360,21 @@ def sync_blocks_command():
             clients=current_app.clients,
             logger=current_app.logger
         )
-        success = False
-        for latest_block, _ in node.request_latest_blocks():
+        for latest_block, peer in node.request_latest_blocks():
             try:
-                progress = BlockCounterBar()
-                filled = node.fill_chain(latest_block, progress=progress)
-                if not success:
-                    success = filled
+                progress_bar = BlockSyncProgress(peer=peer, console=console)
+                with progress_bar as progress:
+                    node.fill_chain(latest_block, progress=progress)
+                    progress.finish()
             except requests.HTTPError as e:
-                click.secho(
+                console.print(
                     f'Synchronization failed: {http_error_message(e)}',
-                    fg='red'
+                    style='error'
                 )
-            except Exception as e:
-                current_app.logger.error(e)
-            finally:
-                progress.finish()
-        if success:
-            click.secho('Synchronized the block chain.', fg='green')
-        else:
-            click.secho('Unable to synchronize the block chain.', fg='red')
+            except Exception:
+                console.print_exception()
     except Exception as e:
-        click.secho(f'Synchronization failed: {e}', fg='red')
+        console.print(f'Synchronization failed: {e}', style='error')
 
 
 @click.command('validate', help="Validate the node's block chain.")
@@ -187,21 +383,13 @@ def validate_chain_command():
     try:
         node = Node(logger=current_app.logger)
         lc = node.longest_chain
-        click.echo(
-            f"Last Block #{lc.length-1}: ({lc.block_hash})"
+        progress_bar = ProgressBar(
+            'Validating Chain', console=console, total=lc.length
         )
-        try:
-            progress = IncrementalBar(
-                message='Validating:',
-                max=lc.length,
-                suffix='%(percent).1f%% [%(index)s/%(max)s %(eta)ds]'
-            )
+        with progress_bar as progress:
             lc.validate(progress=progress)
-        finally:
-            progress.finish()
-        click.secho('The block chain is valid.', fg='green')
     except Exception as e:
-        click.secho(f'The block chain is invalid: {e}', fg='red')
+        console.print(f'The block chain is invalid: {e}', style='error')
 
 
 @click.command('export')
@@ -218,41 +406,34 @@ def export_blocks_command(file):
         node = Node(logger=current_app.logger)
         lc = node.longest_chain
         lc_dao = lc.to_dao()
-        try:
-            progress = None
-            last_block = None
-            append_blocks = False
-            if os.path.isfile(file) and (last_line := read_last_line(file)):
-                last_block = Block.from_json(last_line)
-                if lc_dao.get_block(last_block.block_hash) is None:
-                    raise Exception(CHAIN_MISMATCH_MSG)
-                append_blocks = True
-            last_idx = last_block.idx if last_block is not None else -1
-            num_blocks = lc_dao.block.idx - last_idx
-            if num_blocks:
-                progress = IncrementalBar(
-                    message='Exporting:',
-                    max=num_blocks,
-                    suffix='%(percent).1f%% [%(index)s/%(max)s %(eta)ds]'
-                )
-                with open(
-                    file, 'a' if append_blocks else 'w', encoding='utf-8'
-                ) as f:
-                    block_dao = lc_dao.get_block(idx=last_idx+1)
-                    while block_dao is not None:
-                        block = Block.from_dao(block_dao)
-                        f.write(block.to_json())
-                        f.write('\n')
-                        progress.next()
-                        block_dao = lc_dao.next_block(block_dao)
-            else:
-                click.secho('Up-To-Date')
-        finally:
-            if progress is not None:
-                progress.finish()
-        click.secho('Export complete.', fg='green')
-    except Exception as e:
-        click.secho(f'Export failed: {e}', fg='red')
+        progress = None
+        last_block = None
+        append_blocks = False
+        if os.path.isfile(file) and (last_line := read_last_line(file)):
+            last_block = Block.from_json(last_line)
+            if lc_dao.get_block(last_block.block_hash) is None:
+                raise Exception(CHAIN_MISMATCH_MSG)
+            append_blocks = True
+        last_idx = last_block.idx if last_block is not None else -1
+        progress_bar = ProgressBar(
+            "Exporting Blocks",
+            console=console,
+            total=lc_dao.block.idx+1,
+            completed=last_block.idx+1 if last_block is not None else 0
+        )
+        with open(
+            file, 'a' if append_blocks else 'w', encoding='utf-8'
+        ) as f, progress_bar as progress:
+            block_dao = lc_dao.get_block(idx=last_idx+1)
+            while block_dao is not None:
+                block = Block.from_dao(block_dao)
+                f.write(block.to_json())
+                f.write('\n')
+                progress.next()
+                block_dao = lc_dao.next_block(block_dao)
+    except Exception:
+        console.print_exception()
+        console.print('Export failed', style='error')
 
 
 @click.command('import')
@@ -266,25 +447,21 @@ def import_blocks_command(file):
     """
     try:
         node = Node(logger=current_app.logger)
-        try:
-            with open(file, encoding='utf-8') as f:
-                progress = IncrementalBar(
-                    message='Importing:',
-                    max=sum(1 for line in f),
-                    suffix='%(percent).1f%% [%(index)s/%(max)s %(eta)ds]'
-                )
-            with open(file, encoding='utf-8') as f:
-                for line in f:
-                    block = Block.from_json(line)
-                    if Block.from_db(block.block_hash) is None:
-                        node.add_block(block)
-                    progress.next()
-        finally:
-            progress.finish()
-        click.secho('Import complete.', fg='green')
-    except Exception as e:
-        current_app.logger.exception(e)
-        click.secho(f'Import failed: {e}', fg='red')
+        with open(file, encoding='utf-8') as f:
+            progress_bar = ProgressBar(
+                "Importing Blocks",
+                console=console,
+                total=sum(1 for line in f)
+            )
+        with open(file, encoding='utf-8') as f, progress_bar as progress:
+            for line in f:
+                block = Block.from_json(line)
+                if Block.from_db(block.block_hash) is None:
+                    node.add_block(block)
+                progress.next()
+    except Exception:
+        console.print_exception()
+        console.print('Import failed', style='error')
 
 
 @click.command('mill')
@@ -335,7 +512,6 @@ def mill_command(address, multi, rounds, worksize, wallet, peer, blocks):
     ADDRESS is the address to use for milling coinbase rewards.
     """
     milling_wallet = address_wallet(address, wallet_file=wallet)
-    click.secho(f"Miller Address: {milling_wallet.address}", bold=True)
     if peer is not None and current_app.clients.get(peer) is None:
         msg = f"Peer {peer} client not configured."
         raise Exception(msg)
@@ -347,60 +523,46 @@ def mill_command(address, multi, rounds, worksize, wallet, peer, blocks):
         milling_wallet=milling_wallet,
         milling_peer=peer
     )
-    try:
-        click.echo('Synchronizing the block chain...')
-        progress = BlockCounterBar()
-        miller.poll_latest_blocks(progress=progress)
-        click.echo('Synchronized.')
-    except Exception as e:
-        current_app.logger.error(e)
-        db.session.rollback()
-    block_count = 0
-    while (not blocks) or (block_count < blocks):
+    if peer:
         try:
-            click.echo()
-            chain = miller.longest_chain
-            if chain:
-                click.echo(f'Chain #{chain.cid}: {chain.block_hash}')
-            else:
-                click.echo('GENESIS')
-            block = miller.create_block()
-            click.echo(f'Block #{block.idx} (Target: {block.target})')
-            click.echo(f'  Started: {now_iso()}')
-            try:
-                counter = HashCounter('  Hashes:  ')
-                counter.next(0)
-                milled_block = miller.mill_block(
-                    block,
-                    mp=multi,
-                    rounds=rounds,
-                    worksize=worksize,
-                    progress=counter
-                )
-            finally:
-                counter.finish()
-                block_count += 1
-            if milled_block:
-                pofw = milled_block.proof_of_work
-                click.secho(
-                    f'  POW:     {pofw} ({human_bignum(pofw)})',
-                    fg='green'
-                )
-            elif block.proof_of_work is not None:
-                click.secho('  POW:     SCOOPED (but so close)', fg='yellow')
-            else:
-                click.secho('  POW:     SCOOPED', fg='red')
-            click.echo(f'  Stopped: {now_iso()}')
-            click.secho(
-                (
-                    f'  Elapsed: {human_timespan(counter.elapsed)} '
-                    f'({counter.hps} hps)'
-                ),
-                bold=True
-            )
-        except Exception as e:
-            current_app.logger.error(e)
+            progress_bar = BlockSyncProgress(peer=peer, console=console)
+            with progress_bar as progress:
+                miller.poll_latest_blocks(progress=progress)
+                progress.finish()
+        except Exception:
+            console.print_exception()
             db.session.rollback()
+    block_count = 0
+    milling_progress = MillingProgress(console=console)
+    with milling_progress as progress:
+        progress.console.print()
+        progress.console.print(
+            Rule(
+                title=f'Milling as address [bold]{milling_wallet.address}',
+                align='left',
+                style='milling'
+            )
+        )
+        while (not blocks) or (block_count < blocks):
+            try:
+                chain = miller.longest_chain
+                block = miller.create_block()
+                progress.next_block(block, chain)
+                progress.print_start()
+                try:
+                    milled_block = miller.mill_block(
+                        block,
+                        mp=multi,
+                        rounds=rounds,
+                        worksize=worksize,
+                        progress=progress
+                    )
+                finally:
+                    block_count += 1
+                progress.print_stop(milled_block)
+            except Exception:
+                progress.console.print_exception()
+                db.session.rollback()
 
 
 txn_cli = AppGroup('txn', help='Command group to create transactions.')
@@ -454,21 +616,23 @@ def create_transfer(
         )
         txn = Transaction.from_json(r.text)
         if not (confirm := yes):
-            click.echo(f'Transfer transaction created: {txn.txid}')
-            confirm = click.confirm(
+            console.print(f'Transfer transaction created: {txn.txid}')
+            confirm = Confirm.ask(
                 'Do you want to sign and post the transaction?'
             )
         if confirm:
             txn.set_wallet(txn_wallet)
             txn.sign()
             client.post_transaction(txn)
-            click.secho('Transfer created.', fg='green')
+            console.print('Transfer created.', style='success')
         else:
-            click.secho('Transfer aborted.', fg='red')
+            console.print('Transfer aborted.', style='error')
     except requests.HTTPError as e:
-        click.secho(f'Transfer failed: {http_error_message(e)}', fg='red')
+        console.print(
+            f'Transfer failed: {http_error_message(e)}', style='error'
+        )
     except Exception as e:
-        click.secho(f'Transfer failed: {e}', fg='red')
+        console.print(f'Transfer failed: {e}', style='error')
 
 
 @txn_cli.command('subject')
@@ -515,21 +679,23 @@ def create_subject(address, amount, subject, txn_wallet, host, wallet, yes):
         )
         txn = Transaction.from_json(r.text)
         if not (confirm := yes):
-            click.echo(f'Subject transaction created: {txn.txid}')
-            confirm = click.confirm(
+            console.print(f'Subject transaction created: {txn.txid}')
+            confirm = Confirm.ask(
                 'Do you want to sign and post the transaction?'
             )
         if confirm:
             txn.set_wallet(txn_wallet)
             txn.sign()
             client.post_transaction(txn)
-            click.secho(f'Subject created: {txn.txid}', fg='green')
+            console.print(f'Subject created: {txn.txid}', style='success')
         else:
-            click.secho('Subject aborted.', fg='red')
+            console.print('Subject aborted.', style='error')
     except requests.HTTPError as e:
-        click.secho(f'Subject failed: {http_error_message(e)}', fg='red')
+        console.print(
+            f'Subject failed: {http_error_message(e)}', style='error'
+        )
     except Exception as e:
-        click.secho(f'Subject failed: {e}', fg='red')
+        console.print(f'Subject failed: {e}', style='error')
 
 
 @txn_cli.command('forgive')
@@ -576,21 +742,23 @@ def create_forgive(address, amount, subject, txn_wallet, host, wallet, yes):
         )
         txn = Transaction.from_json(r.text)
         if not (confirm := yes):
-            click.echo(f'Subject transaction created: {txn.txid}')
-            confirm = click.confirm(
+            console.print(f'Subject transaction created: {txn.txid}')
+            confirm = Confirm.ask(
                 'Do you want to sign and post the transaction?'
             )
         if confirm:
             txn.set_wallet(txn_wallet)
             txn.sign()
             client.post_transaction(txn)
-            click.secho(f'Forgive created: {txn.txid}', fg='green')
+            console.print(f'Forgive created: {txn.txid}', style='success')
         else:
-            click.secho('Forgive aborted.', fg='red')
+            console.print('Forgive aborted.', style='error')
     except requests.HTTPError as e:
-        click.secho(f'Forgive failed: {http_error_message(e)}', fg='red')
+        console.print(
+            f'Forgive failed: {http_error_message(e)}', style='error'
+        )
     except Exception as e:
-        click.secho(f'Forgive failed: {e} ', fg='red')
+        console.print(f'Forgive failed: {e} ', style='error')
 
 
 @txn_cli.command('support')
@@ -637,21 +805,23 @@ def create_support(address, amount, subject, txn_wallet, host, wallet, yes):
         )
         txn = Transaction.from_json(r.text)
         if not (confirm := yes):
-            click.echo(f'Support transaction created: {txn.txid}')
-            confirm = click.confirm(
+            console.print(f'Support transaction created: {txn.txid}')
+            confirm = Confirm.ask(
                 'Do you want to sign and post the transaction?'
             )
         if confirm:
             txn.set_wallet(txn_wallet)
             txn.sign()
             client.post_transaction(txn)
-            click.secho(f'Support created: {txn.txid}', fg='green')
+            console.print(f'Support created: {txn.txid}', style='success')
         else:
-            click.secho('Support aborted.', fg='red')
+            console.print('Support aborted.', style='error')
     except requests.HTTPError as e:
-        click.secho(f'Support failed: {http_error_message(e)}', fg='red')
+        console.print(
+            f'Support failed: {http_error_message(e)}', style='error'
+        )
     except Exception as e:
-        click.secho(f'Support failed: {e}', fg='red')
+        console.print(f'Support failed: {e}', style='error')
 
 
 wallet_cli = AppGroup('wallet', help='Command group to work with wallets.')
@@ -670,7 +840,7 @@ def create_wallet(walletdir):
     walletdir = walletdir or current_app.config.get('WALLET_DIR')
     w = Wallet()
     filename = w.to_file(walletdir=walletdir)
-    click.echo(f'{filename}')
+    console.print(f'Created {filename}', style='success')
 
 
 @wallet_cli.command('balance')
@@ -697,11 +867,13 @@ def wallet_balance(address, host, wallet):
         client = host_api_client(host=host, wallet_file=wallet)
         r = client.get_wallet_balance(address)
         balance = r.json().get('balance')
-        click.secho(f'{human_curmudgeons(balance)} CCG', fg='green')
+        console.print(f'{human_curmudgeons(balance)} CCG', style='success')
     except requests.HTTPError as e:
-        click.secho(f'Balance failed: {http_error_message(e)}', fg='red')
+        console.print(
+            f'Balance failed: {http_error_message(e)}', style='error'
+        )
     except Exception as e:
-        click.secho(f'Balance failed: {e}', fg='red')
+        console.print(f'Balance failed: {e}', style='error')
 
 
 subject_cli = AppGroup('subject', help='Command group to work with subjects.')
@@ -732,13 +904,13 @@ def subject_balance(subject, host, wallet):
         client = host_api_client(host=host, wallet_file=wallet)
         r = client.get_subject_balance(encode_subject(subject))
         balance = r.json().get('balance')
-        click.secho(f'{human_curmudgeons(balance)} CCG', fg='green')
+        console.print(f'{human_curmudgeons(balance)} CCG', style='success')
     except requests.HTTPError as e:
-        click.secho(
-            f'Subject balance failed: {http_error_message(e)}', fg='red'
+        console.print(
+            f'Subject balance failed: {http_error_message(e)}', style='error'
         )
     except Exception as e:
-        click.secho(f'Subject balance failed: {e}', fg='red')
+        console.print(f'Subject balance failed: {e}', style='error')
 
 
 @subject_cli.command('support')
@@ -765,10 +937,10 @@ def support_balance(subject, host, wallet):
         client = host_api_client(host=host, wallet_file=wallet)
         r = client.get_subject_support(encode_subject(subject))
         support = r.json().get('support')
-        click.secho(f'{human_curmudgeons(support)} CCG', fg='green')
+        console.print(f'{human_curmudgeons(support)} CCG', style='success')
     except requests.HTTPError as e:
-        click.secho(
-            f'Support balance failed: {http_error_message(e)}', fg='red'
+        console.print(
+            f'Support balance failed: {http_error_message(e)}', style='error'
         )
     except Exception as e:
-        click.secho(f'Support balance failed: {e}', fg='red')
+        console.print(f'Support balance failed: {e}', style='error')
