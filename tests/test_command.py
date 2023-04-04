@@ -307,10 +307,10 @@ def test_mill(app, runner, wallet):
     with app.app_context():
         result = runner.invoke(args=['mill', wallet.address, '--blocks', 2])
         assert 'GENESIS' in result.output
-        assert 'Block Index 0' in result.output
-        assert 'Block Index 1' in result.output
+        assert 'Block │ 0' in result.output
+        assert 'Block │ 1' in result.output
         result = runner.invoke(
             args=['mill', wallet.address, '--blocks', 2]
         )
-        assert 'Block Index 2' in result.output
-        assert 'Block Index 3' in result.output
+        assert 'Block │ 2' in result.output
+        assert 'Block │ 3' in result.output
