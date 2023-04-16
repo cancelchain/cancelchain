@@ -139,12 +139,14 @@ ignore = [
 testpaths = [
   "tests",
 ]
-env_files = [
-  "tests/.test.env",
-]
 filterwarnings = [
   "ignore:.*SelectableGroups dict interface is deprecated.*"
 ]
+# PYTEST-DOTENV
+env_files = [
+  "tests/.test.env",
+]
+env_override_existing_values = 1
 
 # COVERAGE
 [tool.coverage.html]
