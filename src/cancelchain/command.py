@@ -110,7 +110,6 @@ def read_last_line(file):
 class ProgressBar():
     def __init__(self, title, console=None, total=None, completed=0):
         self.progress = Progress(
-            # TextColumn(title),
             BarColumn(),
             TextColumn('{task.completed}/{task.total}'),
             TaskProgressColumn(),
