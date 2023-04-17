@@ -1,7 +1,7 @@
-coverage[toml]>=7.2.2
-pytest==7.2.2
+coverage[toml]>=7.2.3
+pytest==7.3.1
 pytest-cov==4.0.0
 pytest-dotenv==0.5.2
 requests-mock==1.10.0
 time-machine==2.9.0
-ruff==0.0.260
+ruff==0.0.261
