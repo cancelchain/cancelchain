@@ -8,7 +8,7 @@ from cancelchain.util import dt_2_ciso, host_address
 OK = requests.codes.ok
 UNAUTHORIZED = requests.codes.unauthorized
 PEER_HOST_HEADER = 'Peer-Hosts'
-ADDRESS_MISSMATCH_MSG = 'Address/wallet mismatch'
+ADDRESS_MISMATCH_MSG = 'Address/wallet mismatch'
 
 
 def json_header(headers=None):
@@ -28,7 +28,7 @@ class ApiClient():
     def __init__(self, host, wallet, timeout=None):
         host, address = host_address(host)
         if address and address != wallet.address:
-            raise Exception(ADDRESS_MISSMATCH_MSG)
+            raise Exception(ADDRESS_MISMATCH_MSG)
         self.host = host
         self.wallet = wallet
         self.token = None
