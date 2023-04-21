@@ -1,3 +1,4 @@
+import json
 import os
 from dataclasses import dataclass, field, fields
 from typing import ClassVar
@@ -16,15 +17,10 @@ class EnvironSettings:
         c = cls()
         for f in fields(c):
             if (v := cls.getenv(f.name)) is not None:
-                v = v.strip()
-                if f.type == bool:
-                    setattr(c, f.name, v.lower() in ['true', 't', 'yes', 'y'])
-                if f.type == int:
-                    setattr(c, f.name, int(v))
-                if f.type == str:
+                try:
+                    setattr(c, f.name, json.loads(v))
+                except Exception:
                     setattr(c, f.name, v)
-                if f.type == list[str]:
-                    setattr(c, f.name, [s.strip() for s in v.split(',')])
         return c
 
 

@@ -142,3 +142,6 @@ _build/
 
 # ruff
 .ruff_cache/
+
+# vscode
+.vscode/

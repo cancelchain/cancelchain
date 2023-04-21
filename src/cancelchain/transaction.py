@@ -41,7 +41,7 @@ from cancelchain.util import dt_2_iso, iso_2_dt, now_iso
 
 VERSION_1 = '1'
 MAX_FLOWS = 50
-ADDRESS_MISSMATCH_MSG = 'Address/public key mismatch'
+ADDRESS_MISMATCH_MSG = 'Address/public key mismatch'
 
 
 class TransactionSchema(SansNoneSchema):
@@ -65,7 +65,7 @@ class TransactionSchema(SansNoneSchema):
     @validates_schema
     def validate_pk_address(self, data, **kwargs):
         if not validate_address(data.get('public_key'), data.get('address')):
-            raise ValidationError(ADDRESS_MISSMATCH_MSG)
+            raise ValidationError(ADDRESS_MISMATCH_MSG)
 
     @post_load
     def make_transaction(self, data, **kwargs):
