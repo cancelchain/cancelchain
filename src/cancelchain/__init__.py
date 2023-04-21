@@ -19,7 +19,7 @@ import click
 from flask import Flask
 from flask.cli import FlaskGroup
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 
 def create_app(app=None, register_browser=True, test_config=None):
