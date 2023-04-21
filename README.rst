@@ -85,11 +85,8 @@ Next, run the `import command`_, passing it the location of the downloaded file:
 .. code-block:: console
 
   $ cancelchain import path/to/cancelchain.jsonl
-  ╭──────────────────────────── Importing Blocks ─────────────────────────────╮
-  │ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 230/230 100% 0:00:00 [ 0:00:06 ] │
-  ╰───────────────────────────────────────────────────────────────────────────╯
 
-This command could take a while to run depending on your computer and the number of blocks imported. You can run the ``import`` command multiple times and it will only import new blocks that are not yet in the database.
+This command could take a while to run depending on your computer and the number of blocks imported. A progress bar will display with estimated time remaining. You can run the ``import`` command multiple times and it will only import new blocks that are not yet in the database.
 
 
 Run
