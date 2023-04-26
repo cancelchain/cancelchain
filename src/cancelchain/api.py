@@ -192,6 +192,8 @@ def authorize(required_role=Role.READER):
                 current_app.logger.exception(e)
                 abort(401)
             if authorized:
+                kwargs['_address'] = address
+                kwargs['_role'] = role
                 return func(*args, **kwargs)
             abort(401)
         return wrapper
