@@ -7,7 +7,7 @@ from cancelchain.database import db
 from cancelchain.wallet import Wallet
 
 
-def rollback_sesssion():
+def rollback_session():
     db.session.rollback()
 
 
