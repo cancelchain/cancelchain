@@ -17,6 +17,7 @@ class EnvironSettings:
         c = cls()
         for f in fields(c):
             if (v := cls.getenv(f.name)) is not None:
+                v = v.strip()
                 try:
                     setattr(c, f.name, json.loads(v))
                 except Exception:
