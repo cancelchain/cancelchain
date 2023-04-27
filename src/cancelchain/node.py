@@ -16,7 +16,7 @@ from cancelchain.models import (
     ChainDAO,
     ChainFill,
     ChainFillBlock,
-    rollback_sesssion,
+    rollback_session,
 )
 from cancelchain.signals import new_block as new_block_signal
 from cancelchain.transaction import PendingTxnSet, Transaction
@@ -65,7 +65,7 @@ class Node():
             try:
                 self.pending_txns.add(txn)
             except SQLAlchemyError:
-                rollback_sesssion()
+                rollback_session()
                 if txn.txid not in self.pending_txns:
                     raise
             added = True
@@ -135,7 +135,7 @@ class Node():
                 chain = self.create_chain(block=block)
             chain.to_db()
         except SQLAlchemyError:
-            rollback_sesssion()
+            rollback_session()
             if not Block.from_db(block.block_hash):
                 raise
             block = None
