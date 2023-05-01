@@ -1,4 +1,5 @@
 import json
+import re
 from enum import Enum
 from functools import wraps
 from urllib.parse import urljoin
@@ -113,7 +114,9 @@ class Role(Enum):
 
     @classmethod
     def address_roles(cls, address):
-        return [role for role in Role if address in role.addresses()]
+        return [role for role in Role if any(
+            re.fullmatch(x, address) for x in role.addresses()
+        )]
 
     @classmethod
     def address_role(cls, address):
