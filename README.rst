@@ -70,7 +70,6 @@ Create a local database by running the `init command`_:
 .. code-block:: console
 
   $ cancelchain init
-  Initialized the database.
 
 The `CC_SQLALCHEMY_DATABASE_URI`_ value in the example configuration above specifies a `SQLite`_ database called ``cc.sqlite`` with a file path relative to the ``cancelchain`` `instance folder`_.
 
@@ -97,31 +96,25 @@ You run the ``cancelchain`` application by issuing the ``cancelchain run`` comma
 .. code-block:: console
 
   $ cancelchain run
-   * Serving Flask app 'cancelchain'
-   * Debug mode: off
-  WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
-   * Running on all addresses (0.0.0.0)
-   * Running on http://127.0.0.1:5000
-  Press CTRL+C to quit
 
 Open `http://localhost:5000 <http://localhost:5000>`_ in a browser to explore the local copy of the blockchain.
 
 Home (Current Chain)
 ^^^^^^^^^^^^^^^^^^^^
 
-.. image:: readme-assets/browser-chain.png
+.. image:: https://github.com/cancelchain/cancelchain/blob/7a4fab66dfe6026e56c79df3e147b1ecbdbb6158/readme-assets/browser-chain.png?raw=true
    :width: 500pt
 
 Block
 ^^^^^
 
-.. image:: readme-assets/browser-block.png
+.. image:: https://github.com/cancelchain/cancelchain/blob/7a4fab66dfe6026e56c79df3e147b1ecbdbb6158/readme-assets/browser-block.png?raw=true
    :width: 500pt
 
 Transaction
 ^^^^^^^^^^^
 
-.. image:: readme-assets/browser-txn.png
+.. image:: https://github.com/cancelchain/cancelchain/blob/7a4fab66dfe6026e56c79df3e147b1ecbdbb6158/readme-assets/browser-txn.png?raw=true
    :width: 500pt
 
 Running the ``cancelchain`` application also exposes a number of web service endpoints that comprise the communications layer of the blockchain. See the  `API Documentation`_ for much more information.
