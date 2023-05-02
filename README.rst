@@ -125,7 +125,7 @@ There are also many other ``cancelchain`` commands for interacting with the bloc
 Joining The CancelChain Network
 ===============================
 
-The CancelChain is run by a permissioned network of nodes. A CancelChain instance requires `miller`_ or `transactor`_ `API access`_ to a node in the network in order to have locally milled blocks or submitted transactions propagate to the official CancelChain.
+The CancelChain is run by a permissioned network of nodes. A CancelChain instance requires `miller`_ or `transactor`_ role `API access`_ to a node in the network in order to have locally milled blocks or submitted transactions propagate to the official CancelChain.
 
 `The Cancel Button`_ allows `reader`_ `API access`_ to any account that completes at least one transaction on the blockchain.
 
@@ -141,12 +141,12 @@ To enable this access:
 
   CC_NODE_HOST=http://CCTheCancelButtonAddressCC@localhost:5000
   CC_PEERS=https://CCTheCancelButtonAddressCC@thecancelbutton.com
-  CC_DEFAULT_COMMAND_HOST=http://CCTheCancelButtonAddressCC@thecancelbutton.com
+  CC_DEFAULT_COMMAND_HOST=https://CCTheCancelButtonAddressCC@thecancelbutton.com
   CC_WALLET_DIR=/path/to/wallets
 
 See `Configuration Documentation`_ for more detailed information about these settings.
 
-Restart the local instance to pick up the new configuration.
+Restart the local instance to load the new configuration.
 
 CancelChain `reader`_ access allows running the `sync command`_ to update the local instance chain data up to the most recent peer block data:
 
