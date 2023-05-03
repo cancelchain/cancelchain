@@ -91,7 +91,7 @@ This command could take a while to run depending on your computer and the number
 Run
 ---
 
-You run the ``cancelchain`` application by issuing the ``cancelchain run`` command:
+Run the ``cancelchain`` application by issuing the ``run`` command:
 
 .. code-block:: console
 
@@ -99,27 +99,27 @@ You run the ``cancelchain`` application by issuing the ``cancelchain run`` comma
 
 Open `http://localhost:5000 <http://localhost:5000>`_ in a browser to explore the local copy of the blockchain.
 
-Home (Current Chain)
-^^^^^^^^^^^^^^^^^^^^
+Home Page (Current Chain)
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. image:: https://github.com/cancelchain/cancelchain/blob/7a4fab66dfe6026e56c79df3e147b1ecbdbb6158/readme-assets/browser-chain.png?raw=true
    :width: 500pt
 
-Block
-^^^^^
+Block Page
+^^^^^^^^^^
 
 .. image:: https://github.com/cancelchain/cancelchain/blob/7a4fab66dfe6026e56c79df3e147b1ecbdbb6158/readme-assets/browser-block.png?raw=true
    :width: 500pt
 
-Transaction
-^^^^^^^^^^^
+Transaction Page
+^^^^^^^^^^^^^^^^
 
 .. image:: https://github.com/cancelchain/cancelchain/blob/7a4fab66dfe6026e56c79df3e147b1ecbdbb6158/readme-assets/browser-txn.png?raw=true
    :width: 500pt
 
-Running the ``cancelchain`` application also exposes a number of web service endpoints that comprise the communications layer of the blockchain. See the  `API Documentation`_ for much more information.
+Running the ``cancelchain`` application also exposes a set of web service endpoints that comprise the communications layer of the blockchain. See the  `API Documentation`_ for more information.
 
-There are also many other ``cancelchain`` commands for interacting with the blockchain. See the `Command Line Interface Documentation`_ or run ``cancelchain --help``.
+There are other ``cancelchain`` commands for interacting with the blockchain. See the `Command Line Interface Documentation`_ for more information or run ``cancelchain --help``.
 
 
 Joining The CancelChain Network
@@ -127,45 +127,44 @@ Joining The CancelChain Network
 
 The CancelChain is run by a permissioned network of nodes. A CancelChain instance requires `miller`_ or `transactor`_ role `API access`_ to a node in the network in order to have locally milled blocks or submitted transactions propagate to the official CancelChain.
 
-`The Cancel Button`_ allows `reader`_ `API access`_ to any account that completes at least one transaction on the blockchain.
+`The Cancel Button`_ allows `reader`_ role `API access`_ to any account that completes at least one transaction on the blockchain:
 
-To enable this access:
+1) `Register for an account`_.
+2) Submit a successful transaction for any subject. Access won't be granted until the sentiment transaction successfully completes.
+3) Click `Download Account Key`_ on the `Account`_ page to download the account's key (`PEM`_) file.
+4) Create a directory called ``wallets`` and copy the downloaded key file into it.
+5) Add the following settings to the ``.env`` configuration file. Replace ``CCTheCancelButtonAddressCC`` with the address on the `Account`_ page and ``/path/to/wallet`` with the path to the ``wallets`` directory created above:
 
-  1) `Register for an account`_.
-  2) Submit a successful transaction for any subject. Note that access won't be granted until the opposition or support transaction successfully completes.
-  3) Note the address on the `Account`_ page (it's a string that starts and ends with ``CC``) and then click `Download Account Key`_ to download the account's key (`PEM`_) file.
-  4) Create a directory called ``wallets`` (note the location) and copy the downloaded key file into it.
-  5) Add the following settings to the ``.env`` configuration file (make sure to replace ``CCTheCancelButtonAddressCC`` with the address noted on the account page and ``/path/to/wallet`` with the path to the ``wallets`` directory created above):
+  .. code-block:: console
 
-.. code-block:: console
+    # Network Settings
+    CC_NODE_HOST=http://CCTheCancelButtonAddressCC@localhost:5000
+    CC_PEERS=["https://CCTheCancelButtonAddressCC@thecancelbutton.com"]
+    CC_DEFAULT_COMMAND_HOST=https://CCTheCancelButtonAddressCC@thecancelbutton.com
+    CC_WALLET_DIR=/path/to/wallets
 
-  CC_NODE_HOST=http://CCTheCancelButtonAddressCC@localhost:5000
-  CC_PEERS=https://CCTheCancelButtonAddressCC@thecancelbutton.com
-  CC_DEFAULT_COMMAND_HOST=https://CCTheCancelButtonAddressCC@thecancelbutton.com
-  CC_WALLET_DIR=/path/to/wallets
+6) Restart to load the new configuration.
 
 See `Configuration Documentation`_ for more detailed information about these settings.
 
-Restart the local instance to load the new configuration.
-
-CancelChain `reader`_ access allows running the `sync command`_ to update the local instance chain data up to the most recent peer block data:
+The `reader`_ role `API access`_ allows the `sync command`_ to update to the most recent peer block data:
 
 .. code-block:: console
 
   $ cancelchain sync
 
-This command could take a while to run depending on your computer, internet access, and the number of blocks synchronized. A progress bar will display with estimated time remaining. You can run the ``sync`` command multiple times and it will only synchronize new blocks that are not yet in the database.
+This command could take a while to run depending on your computer, internet access, and the number of blocks synchronized. A progress bar will display with estimated time remaining. You can run the `sync command`_ multiple times and it will only synchronize new blocks that are not yet in the database.
 
-Reader access also allows querying data (e.g. subject counts and wallet balances) using the CLI. See `Command Line Interface Documentation`_ for more information.
+Reader access also allows querying data (i.e. subject counts and balances) using the CLI. See `Command Line Interface Documentation`_ for more information.
 
-If you would like to be granted other API access to a node in the CancelChain network, send an email to contact@cancelchain.org including what kind of access you'd like (e.g. `reader`_, `transactor`_, or `miller`_) and how you intend to use it (e.g. research, business, non-profit, hobby).
+If you would like to be granted other `API access`_ to a node in the CancelChain network, send an email to contact@cancelchain.org including what kind of role you'd like (e.g. `reader`_, `transactor`_, or `miller`_) and how you intend to use it (e.g. research, business, non-profit, hobby).
 
 See the `documentation`_ for some potential development ideas.
 
 
 .. _Account: https://thecancelbutton.com/account
-.. _API Documentation: https://docs.cancelchain.org/en/latest/api.html
 .. _API access: https://docs.cancelchain.org/en/latest/api.html#api-roles
+.. _API Documentation: https://docs.cancelchain.org/en/latest/api.html
 .. _Blog: https://blog.cancelchain.org
 .. _CancelChain data: https://storage.googleapis.com/blocks.cancelchain.org/cancelchain.jsonl
 .. _CC_SECRET_KEY: https://docs.cancelchain.org/en/latest/usage.html#SECRET_KEY
@@ -182,8 +181,8 @@ See the `documentation`_ for some potential development ideas.
 .. _miller: https://docs.cancelchain.org/en/latest/api.html#miller
 .. _PEM: https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail
 .. _Project Home Page: https://cancelchain.org
-.. _python-dotenv: https://pypi.org/project/python-dotenv/
 .. _python virtual environment: https://docs.python.org/3/library/venv.html
+.. _python-dotenv: https://pypi.org/project/python-dotenv/
 .. _reader: https://docs.cancelchain.org/en/latest/api.html#reader
 .. _Register for an account: https://thecancelbutton.com/register
 .. _running milling processes: https://docs.cancelchain.org/en/latest/usage.html#mill
