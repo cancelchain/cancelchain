@@ -79,6 +79,23 @@ def test_roles(
         with pytest.raises(requests.exceptions.HTTPError, match='405'):
             _ = ApiClient(host, transactor_wallet).post('/api/block/foo')
 
+def test_regex_roles(
+    reader_wallet, app, miller_wallet, host, mill_block, requests_proxy,
+    transactor_wallet, wallet
+):
+    with app.app_context():
+        w = Wallet()
+        m, b = mill_block(w)
+        with pytest.raises(requests.exceptions.HTTPError, match='403'):
+            _ = ApiClient(host, w).get_block()
+        app.config['READER_ADDRESSES'] = ['.*']
+        _ = ApiClient(host, w).get_block()
+        app.config['READER_ADDRESSES'] = ['CC.*CC']
+        _ = ApiClient(host, w).get_block()
+        app.config['READER_ADDRESSES'] = ['CC.*DD']
+        with pytest.raises(requests.exceptions.HTTPError, match='403'):
+            _ = ApiClient(host, w).get_block()
+
 
 def test_non_app_wallet(app, host, mill_block, requests_proxy, wallet):
     with app.app_context():

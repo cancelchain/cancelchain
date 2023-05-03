@@ -1,4 +1,5 @@
 import json
+import re
 from enum import Enum
 from functools import wraps
 from urllib.parse import urljoin
@@ -50,12 +51,10 @@ def queue_post_process(path, data, visited_hosts):
     headers = None
     if visited_hosts:
         headers = {PEER_HOST_HEADER: ','.join(visited_hosts)}
-    client = ApiClient(host, wallet)
-    headers = client.auth_header(headers=headers)
+    headers = ApiClient(host, wallet).auth_header(headers=headers)
     url = urljoin(host, path)
     http_post_signal.send(
-        current_app._get_current_object(),
-        url=url, data=data, headers=headers
+        current_app._get_current_object(), url=url, data=data, headers=headers
     )
 
 
@@ -113,7 +112,9 @@ class Role(Enum):
 
     @classmethod
     def address_roles(cls, address):
-        return [role for role in Role if address in role.addresses()]
+        return [role for role in Role if any(
+            re.fullmatch(x, address) for x in role.addresses()
+        )]
 
     @classmethod
     def address_role(cls, address):
@@ -293,8 +294,7 @@ class TxnView(MethodView):
             vhosts = visited_hosts()
             received = now_iso()
             txn = node.receive_transaction(
-                txid, request.data,
-                visited_hosts=vhosts, process=process
+                txid, request.data, visited_hosts=vhosts, process=process
             )
             if process is False and txn is not None:
                 queue_txn_post_process(txn, vhosts)
@@ -465,8 +465,7 @@ class PendingTxnView(MethodView):
             node.discard_expired_pending_txns()
             args = PendingTxnQuerySchema().load(request.args)
             earliest = args.get('earliest')
-            expired = now()
-            expired -= TXN_TIMEOUT
+            expired = now() - TXN_TIMEOUT
             pending_json = node.pending_txns.query_json(
                 earliest=earliest, expired=expired
             )
