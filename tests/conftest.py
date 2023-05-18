@@ -360,7 +360,7 @@ def app(
         db_uri = f"sqlite:///{db_file.name}"
         wallet.to_file(walletdir=walletdir)
         miller_2_wallet.to_file(walletdir=walletdir)
-        app = create_app(test_config={
+        app = create_app(config_map={
             'TESTING': True,
             'WTF_CSRF_ENABLED': False,
             'SECRET_KEY': 'shhhhh',
@@ -388,7 +388,7 @@ def remote_app(miller_2_wallet, miller_wallet, wallet):
             wallet.to_file(walletdir=walletdir)
             miller_2_wallet.to_file(walletdir=walletdir)
             miller_wallet.to_file(walletdir=walletdir)
-            app = create_app(test_config={
+            app = create_app(config_map={
                 'TESTING': True,
                 'WTF_CSRF_ENABLED': False,
                 'SECRET_KEY': 'shhhhh',
@@ -401,6 +401,12 @@ def remote_app(miller_2_wallet, miller_wallet, wallet):
             with app.app_context():
                 db.create_all()
             yield app
+
+
+@pytest.fixture
+def config_app():
+    app = create_app()
+    yield app
 
 
 @pytest.fixture

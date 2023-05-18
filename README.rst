@@ -16,8 +16,8 @@ Requirements
 
 Python >= 3.9
 
-Installation
-------------
+Install
+-------
 
 Install CancelChain using pip:
 
@@ -28,39 +28,27 @@ Install CancelChain using pip:
 It is recommended that a `python virtual environment`_ is used for `all <https://realpython.com/python-virtual-environments-a-primer/#avoid-system-pollution>`__ `the <https://realpython.com/python-virtual-environments-a-primer/#sidestep-dependency-conflicts>`__ `usual <https://realpython.com/python-virtual-environments-a-primer/#minimize-reproducibility-issues>`__ `reasons <https://realpython.com/python-virtual-environments-a-primer/#dodge-installation-privilege-lockouts>`_.
 
 
-Configuration
--------------
+Configure
+---------
 
-Create a `python-dotenv`_ ``.env`` file. Here is an example minimal configuration:
+Create a `python-dotenv`_ ``.env`` file. The ``cancelchain`` command loads a ``.env`` file in the current working directory by default.  See the `Dotenv Documentation`_ to locate the file elsewhere. The following ``cancelchain`` command examples assume that the ``.env`` file is loaded by default.
+
+A minimal ``.env`` configuration file:
 
 .. code-block:: console
 
   # Flask Settings
   FLASK_APP=cancelchain
   FLASK_RUN_HOST=0.0.0.0
+  FLASK_SECRET_KEY=0b6ceaa3b10d3e7a5dc53194
 
-  # CancelChain Settings
-  CC_SECRET_KEY=0b6ceaa3b10d3e7a5dc53194
-  CC_SQLALCHEMY_DATABASE_URI=sqlite:///cc.sqlite
+  # Flask-SQLAlchemy Settings
+  FLASK_SQLALCHEMY_DATABASE_URI=sqlite:///cc.sqlite
 
-The `CC_SECRET_KEY <https://docs.cancelchain.org/en/latest/usage.html#SECRET_KEY>`_ value should be a unique random string.
+The `FLASK_SECRET_KEY`_ value should be a unique random string.
 
 See the `Configuration Documentation`_ for more configuration settings.
 
-The ``cancelchain`` command loads a ``.env`` file by default if it is located either in the current working directory or in the ``cancelchain`` `instance folder`_. Use the ``--env-file`` parameter to specify an alternate file path.
-
-You can find the location of the `instance folder`_ by running the ``cancelchain`` `shell command`_:
-
-.. code-block:: console
-
-  $ cancelchain --env-file path/to/.env shell
-  Python 3.10.11 (main, Apr  8 2023, 14:38:50) [GCC 11.3.0] on linux
-  App: cancelchain
-  Instance: /home/arlo/.pyenv/versions/3.10.11/envs/my-cancelchain/var/cancelchain-instance
-
-By default, it is the directory ``$PREFIX/var/cancelchain-instance`` where ``$PREFIX`` is the prefix of the Python installation.
-
-The following ``cancelchain`` command examples assume that the ``.env`` file is loaded by default.
 
 Initialize
 ----------
@@ -71,7 +59,7 @@ Create a local database by running the `init command`_:
 
   $ cancelchain init
 
-The `CC_SQLALCHEMY_DATABASE_URI`_ value in the example configuration above specifies a `SQLite`_ database called ``cc.sqlite`` with a file path relative to the ``cancelchain`` `instance folder`_.
+The `FLASK_SQLALCHEMY_DATABASE_URI`_ value in the example configuration above specifies a `SQLite`_ database called ``cc.sqlite`` with a file path relative to the ``cancelchain`` `instance folder`_.
 
 
 Import
@@ -131,13 +119,13 @@ The CancelChain is run by a permissioned network of nodes. A CancelChain instanc
 
 1) `Register for an account`_.
 2) Submit a successful transaction for any subject. Access won't be granted until the sentiment transaction successfully completes.
-3) Click `Download Account Key`_ on the `Account`_ page to download the account's key (`PEM`_) file.
+3) Click `Download Account Key`_ on the `account`_ page to download the account's key (`PEM`_) file.
 4) Create a directory called ``wallets`` and copy the downloaded key file into it.
-5) Add the following settings to the ``.env`` configuration file. Replace ``CCTheCancelButtonAddressCC`` with the address on the `Account`_ page and ``/path/to/wallet`` with the path to the ``wallets`` directory created above:
+5) Add the following settings to the ``.env`` configuration file. Replace ``CCTheCancelButtonAddressCC`` with the address on the `account`_ page and ``/path/to/wallet`` with the path to the ``wallets`` directory created above:
 
   .. code-block:: console
 
-    # Network Settings
+    # CancelChain Settings
     CC_NODE_HOST=http://CCTheCancelButtonAddressCC@localhost:5000
     CC_PEERS=["https://CCTheCancelButtonAddressCC@thecancelbutton.com"]
     CC_DEFAULT_COMMAND_HOST=https://CCTheCancelButtonAddressCC@thecancelbutton.com
@@ -162,17 +150,18 @@ If you would like to be granted other `API access`_ to a node in the CancelChain
 See the `documentation`_ for some potential development ideas.
 
 
-.. _Account: https://thecancelbutton.com/account
+.. _account: https://thecancelbutton.com/account
 .. _API access: https://docs.cancelchain.org/en/latest/api.html#api-roles
 .. _API Documentation: https://docs.cancelchain.org/en/latest/api.html
 .. _Blog: https://blog.cancelchain.org
 .. _CancelChain data: https://storage.googleapis.com/blocks.cancelchain.org/cancelchain.jsonl
-.. _CC_SECRET_KEY: https://docs.cancelchain.org/en/latest/usage.html#SECRET_KEY
-.. _CC_SQLALCHEMY_DATABASE_URI: https://docs.cancelchain.org/en/latest/usage.html#SQLALCHEMY_DATABASE_URI
+.. _FLASK_SECRET_KEY: https://docs.cancelchain.org/en/latest/usage.html#SECRET_KEY
+.. _FLASK_SQLALCHEMY_DATABASE_URI: https://docs.cancelchain.org/en/latest/usage.html#SQLALCHEMY_DATABASE_URI
 .. _Command Line Interface Documentation: https://docs.cancelchain.org/en/latest/usage.html#command-line-interface
 .. _Configuration Documentation: https://docs.cancelchain.org/en/latest/usage.html#configuration
 .. _documentation: https://docs.cancelchain.org
 .. _Documentation: https://docs.cancelchain.org
+.. _Dotenv Documentation: https://docs.cancelchain.org/en/latest/usage.html#dotenv
 .. _Download Account Key: https://thecancelbutton.com/pem
 .. _import command: https://docs.cancelchain.org/en/latest/usage.html#import
 .. _init command: https://docs.cancelchain.org/en/latest/usage.html#init
@@ -185,9 +174,6 @@ See the `documentation`_ for some potential development ideas.
 .. _python-dotenv: https://pypi.org/project/python-dotenv/
 .. _reader: https://docs.cancelchain.org/en/latest/api.html#reader
 .. _Register for an account: https://thecancelbutton.com/register
-.. _running milling processes: https://docs.cancelchain.org/en/latest/usage.html#mill
-.. _shell command: https://flask.palletsprojects.com/en/2.2.x/cli/#open-a-shell
-.. _sock puppet accounts: https://en.wikipedia.org/wiki/Sock_puppet_account
 .. _SQLite: https://sqlite.org/index.html
 .. _sync command: https://docs.cancelchain.org/en/latest/usage.html#sync
 .. _The Cancel Button: https://thecancelbutton.com
