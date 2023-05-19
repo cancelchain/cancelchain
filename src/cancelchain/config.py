@@ -29,10 +29,6 @@ class EnvironSettings:
 class EnvAppSettings(EnvironSettings):
     _prefix: ClassVar[str] = 'CC_'
 
-    SECRET_KEY: str = field(default=None)
-    SQLALCHEMY_DATABASE_URI: str = field(default=None)
-    CACHE_TYPE: str = field(default='NullCache')
-    CELERY_BROKER_URL: str = field(default=None)
     NODE_HOST: str = field(default=None)
     PEERS: list[str] = field(default_factory=list)
     API_CLIENT_TIMEOUT: int = field(default=10)

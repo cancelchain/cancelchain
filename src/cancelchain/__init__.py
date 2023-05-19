@@ -19,10 +19,10 @@ import click
 from flask import Flask
 from flask.cli import FlaskGroup
 
-__version__ = "1.3.2"
+__version__ = "1.4.0"
 
 
-def create_app(app=None, register_browser=True, test_config=None):
+def create_app(app=None, config_map=None, register_browser=True):
     from .application import init_app
     from .cache import cache
     from .config import EnvAppSettings
@@ -30,22 +30,32 @@ def create_app(app=None, register_browser=True, test_config=None):
     from .tasks import init_tasks
 
     app = app or Flask(__name__)
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-    if not test_config:
-        app.config.from_object(EnvAppSettings.from_env())
-        app.config.from_envvar('CANCELCHAIN_SETTINGS', silent=True)
-    else:
-        app.config.from_object(EnvAppSettings())
-        app.config.from_mapping(test_config)
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['CACHE_TYPE'] = 'NullCache'
+
+    app.config.from_prefixed_env()
+    app.config.from_object(EnvAppSettings.from_env())
+    app.config.from_envvar('CANCELCHAIN_SETTINGS', silent=True)
+    if config_map:
+        app.config.from_mapping(config_map)
 
     init_app(app, register_browser=register_browser)
+
     try:
         db.init_app(app)
     except RuntimeError as e:
         app.logger.error(e)
-    cache.init_app(app)
-    init_tasks(app)
+
+    try:
+        cache.init_app(app)
+    except Exception as e:
+        app.logger.error(e)
+
+    try:
+        init_tasks(app)
+    except Exception as e:
+        app.logger.error(e)
 
     @app.shell_context_processor
     def make_shell_context():
