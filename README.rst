@@ -31,7 +31,7 @@ It is recommended that a `python virtual environment`_ is used for `all <https:/
 Configure
 ---------
 
-Create a `python-dotenv`_ ``.env`` file. The ``cancelchain`` command loads a ``.env`` file in the current working directory by default.  See the `Dotenv Documentation`_ to locate the file elsewhere. The following ``cancelchain`` command examples assume that the ``.env`` file is loaded by default.
+Create a `python-dotenv`_ ``.env`` file. The ``cancelchain`` command loads a ``.env`` file in the current working directory by default.  See `dotenv documentation`_ to locate the file elsewhere. The following ``cancelchain`` command examples assume that the ``.env`` file is loaded by default.
 
 A minimal ``.env`` configuration file:
 
@@ -67,7 +67,7 @@ Import
 
 Download the most recent export of `CancelChain data`_. This `JSON Lines`_ file is updated at every blockchain epoch (2016 blocks or approximately every two weeks).
 
-Next, run the `import command`_, passing it the location of the downloaded file:
+Run the `import command`_, passing it the location of the downloaded file:
 
 .. code-block:: console
 
@@ -119,9 +119,9 @@ The CancelChain is run by a permissioned network of nodes. A CancelChain instanc
 
 1) `Register for an account`_.
 2) Submit a successful transaction for any subject. Access won't be granted until the sentiment transaction successfully completes.
-3) Click `Download Account Key`_ on the `account`_ page to download the account's key (`PEM`_) file.
+3) Click `Download Account Key`_ on the `account page`_ to download the account's key (`PEM`_) file.
 4) Create a directory called ``wallets`` and copy the downloaded key file into it.
-5) Add the following settings to the ``.env`` configuration file. Replace ``CCTheCancelButtonAddressCC`` with the address on the `account`_ page and ``/path/to/wallet`` with the path to the ``wallets`` directory created above:
+5) Add the following settings to the ``.env`` configuration file. Replace ``CCTheCancelButtonAddressCC`` with the address on the `account page`_ and ``/path/to/wallet`` with the path to the ``wallets`` directory created above:
 
   .. code-block:: console
 
@@ -150,7 +150,7 @@ If you would like to be granted other `API access`_ to a node in the CancelChain
 See the `documentation`_ for some potential development ideas.
 
 
-.. _account: https://thecancelbutton.com/account
+.. _account page: https://thecancelbutton.com/account
 .. _API access: https://docs.cancelchain.org/en/latest/api.html#api-roles
 .. _API Documentation: https://docs.cancelchain.org/en/latest/api.html
 .. _Blog: https://blog.cancelchain.org
@@ -161,7 +161,7 @@ See the `documentation`_ for some potential development ideas.
 .. _Configuration Documentation: https://docs.cancelchain.org/en/latest/usage.html#configuration
 .. _documentation: https://docs.cancelchain.org
 .. _Documentation: https://docs.cancelchain.org
-.. _Dotenv Documentation: https://docs.cancelchain.org/en/latest/usage.html#dotenv
+.. _dotenv documentation: https://docs.cancelchain.org/en/latest/usage.html#dotenv
 .. _Download Account Key: https://thecancelbutton.com/pem
 .. _import command: https://docs.cancelchain.org/en/latest/usage.html#import
 .. _init command: https://docs.cancelchain.org/en/latest/usage.html#init
