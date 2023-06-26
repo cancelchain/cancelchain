@@ -39,7 +39,6 @@ A minimal ``.env`` configuration file:
 
   # Flask Settings
   FLASK_APP=cancelchain
-  FLASK_RUN_HOST=0.0.0.0
   FLASK_SECRET_KEY=0b6ceaa3b10d3e7a5dc53194
 
   # Flask-SQLAlchemy Settings
