@@ -23,7 +23,7 @@ from cancelchain.transaction import PendingTxnSet, Transaction
 from cancelchain.util import host_address, now
 
 
-class Node():
+class Node:
     def __init__(self, host=None, peers=None, clients=None, logger=None):
         self.host = host
         self.peers = peers or []

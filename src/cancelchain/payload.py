@@ -81,7 +81,7 @@ class OutflowSchema(SansNoneSchema):
 
 
 @dataclass
-class Outflow():
+class Outflow:
     amount: int = None
     address: str = None
     subject: str = None

@@ -107,7 +107,7 @@ def read_last_line(file):
         return f.readline().decode()
 
 
-class ProgressBar():
+class ProgressBar:
     def __init__(self, title, console=None, total=None, completed=0):
         self.progress = Progress(
             BarColumn(),
@@ -147,7 +147,7 @@ class ProgressBar():
         self.live.__exit__(exc_type, exc_val, exc_tb)
 
 
-class BlockSyncProgress():
+class BlockSyncProgress:
     def __init__(self, peer=None, console=None):
         self.find_progress = Progress(
             SpinnerColumn(spinner_name='aesthetic', style='none'),
@@ -229,7 +229,7 @@ class BlockSyncProgress():
         self.live.__exit__(exc_type, exc_val, exc_tb)
 
 
-class MillingProgress():
+class MillingProgress:
     def __init__(self, console=None):
         self.block = None
         self.chain = None
