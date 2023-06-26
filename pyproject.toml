@@ -30,7 +30,7 @@ classifiers = [
 dependencies = [
   "base58check>=1.0",
   "blinker>=1.6",
-  "celery>=5.2",
+  "celery>=5.3",
   "click>=8.1",
   "Flask>=2.3",
   "Flask-Caching>=2.0",
@@ -41,12 +41,12 @@ dependencies = [
   "millify>=0.1",
   "passlib[argon2]>=1.7",
   "pg8000>=1.29",
-  "pycryptodome>=3.17",
-  "pyjwt>=2.6",
-  "pymerkle>=4.0",
+  "pycryptodome>=3.18",
+  "pyjwt>=2.7",
+  "pymerkle>=4.0,<5.0",
   "python-dotenv>=1.0",
-  "requests>=2.29",
-  "rich>=13.3",
+  "requests>=2.31",
+  "rich>=13.4",
   "sqlalchemy<2.0",
 ]
 
@@ -74,12 +74,12 @@ exclude = [
 [tool.hatch.envs.test]
 dependencies = [
   "coverage[toml]>=7.2",
-  "pytest>=7.3",
-  "pytest-cov>=4.0",
+  "pytest>=7.4",
+  "pytest-cov>=4.1",
   "pytest-dotenv>=0.5",
-  "requests-mock>=1.10",
-  "time-machine>=2.9",
-  "ruff>=0.0.264",
+  "requests-mock>=1.11",
+  "time-machine>=2.10",
+  "ruff>=0.0.275",
 ]
 
 [tool.hatch.envs.test.scripts]

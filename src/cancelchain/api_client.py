@@ -24,7 +24,7 @@ def peer_header(visited_hosts, headers=None):
     return headers
 
 
-class ApiClient():
+class ApiClient:
     def __init__(self, host, wallet, timeout=None):
         host, address = host_address(host)
         if address and address != wallet.address:
